@@ -1,0 +1,199 @@
+body {
+  font-family: Arial, sans-serif;
+  background-color: #e0f7fa; /* Celeste claro */
+  color: #004d73; /* Azul oscuro */
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden; /* Evitar scroll horizontal innecesario */
+}
+
+h2 {
+  text-align: center;
+  color: #005b96; /* Azul intermedio */
+  margin-top: 10px;
+  font-size: 24px; /* Reducir tamaño para mejor ajuste */
+}
+
+.primary-button {
+  background-color: #007bb5; /* Azul intenso */
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  border-radius: 8px; /* Borde redondeado */
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* Sombra */
+  transition: transform 0.3s ease-in-out, background-color 0.3s ease-in-out;
+}
+
+.primary-button:hover {
+  transform: scale(1.05); /* Agrandarse al pasar el mouse */
+  background-color: #005f8b; /* Azul más oscuro */
+}
+
+.back-button {
+  background-color: transparent;
+  color: #004d73; /* Azul oscuro */
+  font-size: 14px;
+  font-weight: bold;
+  border: none;
+  cursor: pointer;
+  margin-bottom: 10px;
+  align-self: flex-start;
+  margin-left: 10px;
+}
+
+.container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 10px;
+  max-width: 100%;
+}
+
+select {
+  padding: 8px;
+  margin-top: 10px;
+  font-size: 18px;
+  width: 40%;
+  text-align: center;
+}
+
+.table-container {
+  max-width: 90%;
+  overflow-x: auto;
+  margin: 20px 0;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* Añadir sombra para dar efecto de contenedor */
+}
+
+table {
+  margin: 10px auto;
+  border-collapse: collapse;
+  width: 100%;
+  background-color: white;
+  border: 1px solid #b3e5fc; /* Celeste claro */
+}
+
+th, td {
+  border: 1px solid #b3e5fc; /* Celeste claro */
+  padding: 5px;
+  text-align: center;
+  font-size: 14px; /* Reducir tamaño de fuente para mejor ajuste */
+}
+
+th {
+  background-color: #0288d1; /* Azul intermedio */
+  color: white;
+}
+
+td {
+  color: #004d73; /* Azul oscuro */
+}
+
+.prediction-container {
+  margin-top: 10px;
+  border: 1px solid #b3e5fc;
+  padding: 15px;
+  border-radius: 10px;
+  width: 80%;
+  max-width: 800px;
+  background-color: #f1f9ff; /* Fondo más claro para destacar el modal */
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* Añadir sombra para dar efecto de modal */
+}
+
+.tabs-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  justify-content: center;
+  margin-bottom: 10px;
+}
+
+.tab-title {
+  padding: 8px;
+  border-radius: 6px;
+  background-color: #007bb5; /* Azul oscuro para tabs inactivos */
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 5px;
+  flex: 1 1 calc(20% - 10px); /* Ajustar el ancho de las pestañas para mejor distribución */
+  max-width: calc(20% - 10px);
+}
+
+.tab-title.active {
+  background-color: #81c3d7; /* Color del contenedor de predicción para tabs activos */
+}
+
+.close-tab {
+  background-color: transparent;
+  border: none;
+  color: #ff0000; /* Rojo para la 'X' */
+  font-weight: bold;
+  cursor: pointer;
+  margin-left: 5px;
+}
+
+.prediction-tab {
+  display: flex;
+  flex-direction: column;
+  border: none;
+  border-radius: 8px;
+  background-color: #81c3d7; /* Azul claro para resaltar las predicciones */
+  margin-bottom: 10px;
+  padding: 10px;
+  position: relative;
+}
+
+.prediction-tab p, .prediction-tab ul {
+  color: white;
+  font-weight: bold;
+}
+
+.logo2 {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 80px; /* Ajuste del tamaño del logo */
+  height: auto;
+}
+
+.logo1 {
+  position: relative;
+  top: 10px;
+  margin: 0 auto;
+  display: block;
+  width: 250px; /* Tamaño más grande para la página principal */
+  height: auto;
+}
+
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: 10px;
+  gap: 5px;
+}
+
+.pagination button {
+  background-color: #007bb5; /* Azul intenso */
+  color: white;
+  border: none;
+  padding: 6px 12px; /* Reducir tamaño de los botones para mejor ajuste */
+  font-size: 12px; /* Reducir tamaño de fuente para mejor ajuste */
+  cursor: pointer;
+  border-radius: 5px;
+}
+
+.pagination button.active {
+  background-color: #005f8b; /* Azul más oscuro */
+}
+
+.pagination button:disabled {
+  background-color: #b3e5fc; /* Celeste claro */
+  color: #004d73; /* Azul oscuro */
+  cursor: not-allowed;
+}
