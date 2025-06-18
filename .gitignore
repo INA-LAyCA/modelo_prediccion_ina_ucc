@@ -1,0 +1,37 @@
+# .gitignore para un proyecto de Python (Flask) + React + Machine Learning
+
+# # Archivos y Carpetas de Entornos Virtuales de Python
+# Ignorar la carpeta completa del entorno virtual. Es crucial.
+new_vevnv/
+venv/
+*.venv
+env/
+
+# # Archivos de Cache y Compilados de Python
+# Ignorar la carpeta de caché que Python crea automáticamente.
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+#archivos 
+CodigosUtiles.md
+graficos.py
+porsi.py
+porsinofunciona.py
+tf2.py
+
+
+# # Carpetas y Archivos de Machine Learning
+# ¡MUY IMPORTANTE! Ignorar la carpeta donde se guardan los modelos entrenados.
+# Estos archivos pueden ser muy grandes y no son parte del código fuente.
+modelos_entrenados/
+
+# Ignorar el directorio temporal que usa KerasTuner para sus pruebas.
+keras_tuner_dir/
+
+# datos locales (CSVs, etc.).
+*.csv
+*.numbers
+
+
