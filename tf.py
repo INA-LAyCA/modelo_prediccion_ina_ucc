@@ -20,8 +20,11 @@ import psycopg2
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 import select
 import os
+import io
 import joblib
 import tensorflow as tf
+from entrenar_modelos import preprocess_and_feature_engineer
+
 
 # Configuración de Flask
 app = Flask(__name__)
@@ -650,9 +653,6 @@ def condicion_termica(df_principal, db_engine_param):
     return df_a_modificar
 
 # --- 3. LÓGICA DE ACTUALIZACIÓN Y ESCUCHA (WORKER Y LISTENER) ---
-
-
-
 def actualizar_df():
     """
     Función "trabajadora". Llama al pipeline pesado y guarda el resultado.
@@ -737,44 +737,96 @@ def database_listener():
 # --- CARGA DE MODELOS Y ARTEFACTOS AL INICIO DE LA APP ---
 # =======================================================================
 print("Cargando modelos y artefactos entrenados...")
+SITIOS_A_ANALIZAR   = ['C1','TAC1','TAC4','DSA1','DCQ1']
+TARGETS_A_PREDECIR  = ['Clorofila','Cianobacterias','Dominancia']
+CLASS_LABELS_MAP_ALERTA = {
+    0: "Vigilancia/Bajo",
+    1: "Alerta 1/Medio",
+    2: "Alerta 2/Alto"
+}
 
-# Re-definir algunas constantes necesarias para la predicción
-# Asegúrate de que estas coincidan con las de tu script de entrenamiento
-SITIOS_A_ANALIZAR = ['C1', 'TAC1', 'TAC4', 'DSA1', 'DCQ1']
-TARGETS_A_PREDECIR = ['Clorofila', 'Cianobacterias']
-CLASS_LABELS_MAP_ALERTA = {0: "Vigilancia/Bajo", 1: "Alerta 1/Medio", 2: "Alerta 2/Alto"}
-FEATURES_PARA_LAGS_UNIFICADA = sorted(list(set([
-    'Clorofila (µg/l)', 'Cianobacterias_cel_mL_Calculado', 'T° (°C)',
-    'Total Algas Sumatoria (Cel/L)', 'PHT (µg/l)', 'PRS (µg/l)',
-    'Nitrogeno Inorganico Total (µg/l)'
-])))
-SENSORES_IMPUTAR_LLUVIA = ['1100_CIRSA - Villa Carlos Paz', '600_Bo. El Canal', '700_Confluencia El Cajon']
+# --- Carga inicial de modelos y artefactos ---
+print("🔄 Cargando modelos y artefactos entrenados...")
+modelos_cargados = {t:{} for t in TARGETS_A_PREDECIR}
 
-modelos_cargados = {}
-try:
+for target in TARGETS_A_PREDECIR:
+    for sitio in SITIOS_A_ANALIZAR:
+        pkl_path  = f"modelos_entrenados/artefactos_{sitio}_{target}.pkl"
+        keras_path= f"modelos_entrenados/modelo_{sitio}_{target}.keras"
+        if os.path.exists(pkl_path):
+            artefactos = joblib.load(pkl_path)
+            # Si hay modelo Keras separado, lo cargamos también
+            if os.path.exists(keras_path):
+                artefactos['modelo'] = tf.keras.models.load_model(keras_path)
+            modelos_cargados[target][sitio] = artefactos
+            print(f"  • {sitio}-{target} cargado")
+        else:
+            print(f"  ⚠️ No encontrado: {pkl_path}")
+print("✅ Carga de modelos completa.\n")
+
+# En app.py
+
+def hacer_prediccion_para_sitio(sitio: str) -> dict:
+    """
+    Versión mejorada que devuelve la predicción JUNTO con las métricas
+    del modelo que la realizó.
+    """
+    resultado = {'codigo_perfil': sitio}
+
+    # 1) Traer historial completo (ordenado)
+    df_raw = pd.read_sql(
+        "SELECT * FROM dataframe WHERE codigo_perfil = %s ORDER BY fecha",
+        engine3, params=(sitio,)
+    )
+    if df_raw.empty:
+        resultado['error'] = "No hay datos históricos"
+        return resultado
+
+    # 2) Preprocesar TODO el histórico
+    df_proc = preprocess_and_feature_engineer(df_raw)
+
+    # 3) Tomar la fila más reciente
+    ultimo = df_proc.iloc[[-1]]
+
+    # 4) Para cada target, filtrar, escalar y predecir
     for target in TARGETS_A_PREDECIR:
-        modelos_cargados[target] = {}
-        for sitio in SITIOS_A_ANALIZAR:
-            ruta_artefactos_joblib = f"modelos_entrenados/artefactos_{sitio}_{target}.pkl"
-            ruta_modelo_keras = f"modelos_entrenados/modelo_{sitio}_{target}.keras"
+        artef = modelos_cargados.get(target, {}).get(sitio)
+        if not artef:
+            resultado[target] = "Modelo no disponible"
+            continue
 
-            if os.path.exists(ruta_artefactos_joblib):
-                artefactos = joblib.load(ruta_artefactos_joblib)
-                
-                # Si el modelo era Keras, se guardó por separado. Hay que cargarlo y añadirlo al dict.
-                if os.path.exists(ruta_modelo_keras):
-                    artefactos['modelo'] = tf.keras.models.load_model(ruta_modelo_keras)
-                
-                modelos_cargados[target][sitio] = artefactos
-                print(f"Modelo y artefactos para {sitio}-{target} cargados exitosamente.")
-            else:
-                print(f"Advertencia: No se encontró archivo de modelo para {sitio}-{target} en {ruta_artefactos_joblib}")
+        # Extraer scaler, lista de columnas y modelo
+        scaler = artef['scaler']
+        best_features = artef['best_features']
+        modelo = artef['modelo']
+        # --- ¡AQUÍ EL CAMBIO CLAVE! ---
+        # Extraer la información del modelo, con valores por defecto por si no existe
+        model_info = artef.get('model_info', {})
 
-    print("Carga de modelos finalizada.")
-except Exception as e:
-    print(f"ERROR CRÍTICO AL CARGAR LOS MODELOS: {e}. La predicción no funcionará.")
+        # 5) Construir y escalar vector de predicción
+        X_df = ultimo.reindex(columns=best_features, fill_value=0)
+        X_scaled = scaler.transform(X_df)
 
-from sqlalchemy import text
+        # 6) Predecir
+        if isinstance(modelo, tf.keras.Model):
+            probs = modelo.predict(X_scaled, verbose=0)
+            cls = int(np.argmax(probs, axis=1)[0])
+        else:
+            cls = int(modelo.predict(X_scaled)[0])
+
+        etiqueta_predicha = CLASS_LABELS_MAP_ALERTA.get(cls, "Desconocido")
+
+        # 7) Construir el diccionario de respuesta enriquecido
+        resultado[target] = {
+            'prediccion': etiqueta_predicha,
+            'modelo_usado': model_info.get('modelo', 'N/D'),
+            'f1_score_cv': round(model_info.get('f1_macro_cv', 0), 4),
+            'roc_auc_cv': round(model_info.get('roc_auc_cv', 0), 4),
+            # Convertimos los params a string por si contienen tipos no serializables a JSON
+            'hiperparametros': str(model_info.get('best_params', {}))
+        }
+
+    return resultado
 
 def guardar_prediccion_historica(codigo_perfil, fecha_prediccion, target, clase_alerta):
     """
@@ -798,77 +850,29 @@ def guardar_prediccion_historica(codigo_perfil, fecha_prediccion, target, clase_
     with engine3.begin() as conn:
         conn.execute(sql, params)
 
-# =======================================================================
-# --- FUNCIÓN AUXILIAR PARA PREPARAR EL VECTOR DE PREDICCIÓN ---
-# =======================================================================
-def preparar_vector_para_predecir(df_historial, artefactos):
-    """
-    Función ligera que toma el historial reciente de un sitio y los artefactos
-    cargados para crear el vector de entrada para la predicción del siguiente mes.
-    (Esta es una adaptación de tu función 'predict_future_unified')
-    """
-    feature_columns_pred = artefactos['feature_names']
-    knn_imputer_pred = artefactos['knn_imputer']
-    
-    df_for_lags = df_historial.copy().sort_values('fecha')
-
-    # Recalcular lags para asegurar consistencia
-    for col_to_lag in FEATURES_PARA_LAGS_UNIFICADA:
-        if col_to_lag in df_for_lags.columns:
-            for lag_n in [1, 2, 3]:
-                df_for_lags[f"{col_to_lag}_lag{lag_n}"] = df_for_lags[col_to_lag].shift(lag_n)
-        else:
-            for lag_n in [1, 2, 3]:
-                df_for_lags[f"{col_to_lag}_lag{lag_n}"] = np.nan
-
-    last_known_data = df_for_lags.iloc[-1:]
-    if last_known_data.empty: return None
-
-    # ## CAMBIO CLAVE: Predecir para el mes siguiente al último dato, no una fecha fija
-    last_known_date = pd.to_datetime(last_known_data['fecha'].iloc[0])
-    fecha_prediccion = last_known_date + pd.DateOffset(months=1)
-    
-    input_vector_dict = {}
-
-    # Features de tiempo para el mes de la predicción
-    input_vector_dict['mes'] = fecha_prediccion.month
-    input_vector_dict['mes_sin'] = np.sin(2 * np.pi * fecha_prediccion.month / 12)
-    input_vector_dict['mes_cos'] = np.cos(2 * np.pi * fecha_prediccion.month / 12)
-    input_vector_dict['estacion'] = (fecha_prediccion.month % 12 // 3) + 1
-    
-    # Llenar el resto de features
-    for feat_name in feature_columns_pred:
-        if feat_name in input_vector_dict: continue
-
-        is_lag_feature = any(f"_lag{i}" in feat_name for i in [1, 2, 3])
-
-        if is_lag_feature:
-            input_vector_dict[feat_name] = last_known_data[feat_name].values[0] if feat_name in last_known_data else np.nan
-        else:
-            # Para features no-lag, usamos el último valor conocido como proxy
-            # (una simplificación común)
-            if feat_name in SENSORES_IMPUTAR_LLUVIA:
-                # Para lluvia, usar la mediana histórica de ese mes si existe, si no 0
-                median_rain = df_for_lags[df_for_lags['mes'] == fecha_prediccion.month][feat_name].median()
-                input_vector_dict[feat_name] = median_rain if pd.notna(median_rain) else 0
-            else:
-                input_vector_dict[feat_name] = last_known_data[feat_name].values[0] if feat_name in last_known_data else np.nan
-
-    input_df = pd.DataFrame([input_vector_dict])[feature_columns_pred]
-    
-    # Imputar cualquier NaN restante (ej. si una columna no existía en el historial)
-    input_imputed = knn_imputer_pred.transform(input_df)
-    
-    # En caso de que KNNImputer no pueda resolver algún NaN (muy raro), rellenar con 0
-    input_imputed_final = np.nan_to_num(input_imputed)
-    
-    return input_imputed_final
-
-
-
 @app.route('/datos', methods=['GET'])
 def ver_datos():
     nombre_tabla = 'dataframe'
+    query = f"SELECT * FROM {nombre_tabla}"
+
+    try:
+        df = pd.read_sql(query, engine3)
+        if df.empty:
+            return jsonify({'message': 'No hay datos procesados disponibles.', 'data': []}), 200
+
+        df_serializable = df.replace({np.nan: None, pd.NaT: None})
+        data = df_serializable.to_dict(orient='records')
+        
+        return jsonify(data)
+
+    except Exception as e:
+        print(f"Error al leer la tabla '{nombre_tabla}' desde engine3: {e}")
+        # Devolver una respuesta de error JSON válida
+        return jsonify({'error': 'No se pudieron obtener los datos del servidor.'}), 500
+
+@app.route('/predicciones', methods=['GET'])
+def ver_predicciones():
+    nombre_tabla = 'predicciones_historicas'
     query = f"SELECT * FROM {nombre_tabla}"
 
     try:
@@ -896,102 +900,18 @@ def ejecutar_actualizacion():
     return jsonify({'message': 'Proceso de actualización manual iniciado en segundo plano.'}), 202
 
 # Ruta para la predicción
-# =======================================================================
-# --- RUTA /predict FINAL ---
-# =======================================================================
 @app.route('/predict', methods=['POST'])
 def predict():
-    try:
-        data = request.get_json()
-        sitio_seleccionado = data.get('option')
+    data = request.get_json() or {}
+    sitio = data.get('option')
+    if not sitio:
+        return jsonify({'error':'No se especificó un sitio.'}), 400
+    sitios = SITIOS_A_ANALIZAR if sitio=='Todos' else [sitio]
+    out = []
+    for s in sitios:
+        out.append(hacer_prediccion_para_sitio(s))
+    return jsonify(out)
 
-        if not sitio_seleccionado:
-            return jsonify({'error': 'No se especificó un sitio.'}), 400
-
-        # Si se pide para "Todos", iterar y hacer predicción para cada uno
-        if sitio_seleccionado == 'Todos':
-            lista_predicciones = []
-            for sitio in SITIOS_A_ANALIZAR:
-                prediccion_sitio = hacer_prediccion_para_sitio(sitio)
-                lista_predicciones.append(prediccion_sitio)
-            return jsonify(lista_predicciones)
-        else: # Predicción para un solo sitio
-            prediccion_sitio = hacer_prediccion_para_sitio(sitio_seleccionado)
-            return jsonify(prediccion_sitio)
-
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        return jsonify({'error': str(e)}), 500
-
-
-def hacer_prediccion_para_sitio(sitio):
-    """Función auxiliar para manejar la lógica de predicción para un sitio específico."""
-    predicciones_finales = {'codigo_perfil': sitio}
-
-    for target_key in TARGETS_A_PREDECIR:
-        artefactos = modelos_cargados.get(target_key, {}).get(sitio)
-        if not artefactos:
-            # Para el frontend, es mejor devolver un string que indique el estado
-            predicciones_finales[target_key] = "Modelo no disponible"
-            continue
-
-        # Obtener los últimos datos necesarios para crear los lags
-        df_historial = pd.read_sql(f"SELECT * FROM dataframe WHERE codigo_perfil = '{sitio}' ORDER BY fecha DESC LIMIT 5", engine3)
-        if len(df_historial) < 3:
-            predicciones_finales[target_key] = "Datos históricos insuficientes"
-            continue
-        if 'condicion_termica' in df_historial.columns:
-            mapeo_condicion = {'MEZCLA': 0, 'INDETERMINACION': 1, 'ESTRATIFICADA': 2, 'SD': 3}
-            df_historial['condicion_termica'] = df_historial['condicion_termica'].map(mapeo_condicion)
-            # Rellenar NaNs si el mapeo produce alguno (ej. si hubiera un valor de texto inesperado)
-            # Usamos 3 (el valor para 'SD') como valor por defecto, igual que en el entrenamiento.
-            df_historial['condicion_termica'].fillna(3, inplace=True)
-            df_historial['condicion_termica'] = df_historial['condicion_termica'].astype(int)
-        #
-        last_date = pd.to_datetime(df_historial['fecha'].iloc[0])
-        fecha_prediccion = (last_date + pd.DateOffset(months=1)).date()
-
-        # Preparar el vector de entrada
-        X_para_predecir = preparar_vector_para_predecir(df_historial, artefactos)
-        if X_para_predecir is None:
-             predicciones_finales[target_key] = "Error preparando datos"
-             continue
-
-        # Escalar y Predecir
-        modelo = artefactos['modelo']
-        scaler = artefactos['scaler']
-        X_scaled = scaler.transform(X_para_predecir)
-
-        # Manejar la predicción para Keras vs Sklearn
-        if isinstance(modelo, tf.keras.Model):
-            pred_probs = modelo.predict(X_scaled)
-            prediccion_clase = np.argmax(pred_probs, axis=1)[0]
-            prob=float(pred_probs.max())
-        else: # Asumimos Sklearn
-            prediccion_clase = modelo.predict(X_scaled)[0]
-        
-        etiqueta_predicha = CLASS_LABELS_MAP_ALERTA.get(int(prediccion_clase), "Desconocido")
-        
-        guardar_prediccion_historica(
-            codigo_perfil=sitio,
-            fecha_prediccion=fecha_prediccion,
-            target=target_key,
-            clase_alerta=prediccion_clase
-        )
-        # Mapear a los nombres que tu frontend original esperaba para la predicción simple
-        if target_key == 'Cianobacterias':
-            predicciones_finales['Cianobacterias Total'] = etiqueta_predicha
-        elif target_key == 'Clorofila':
-            predicciones_finales['Clorofila (µg/l)'] = etiqueta_predicha
-
-    # Simular la dominancia por ahora si no tienes un modelo para ella
-    predicciones_finales.setdefault('Dominancia de Cianobacterias (%)', "No disponible")
-    predicciones_finales.setdefault('Cianobacterias Total', "No modelado")
-    predicciones_finales.setdefault('Clorofila (µg/l)', "No modelado")
-    
-    return predicciones_finales
-    
 # --- INICIO DE LA APLICACIÓN Y DEL LISTENER ---
 print("Iniciando el listener de la base de datos en un hilo de fondo...")
 listener_thread = threading.Thread(target=database_listener, daemon=True)

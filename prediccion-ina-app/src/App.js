@@ -9,7 +9,7 @@ import './App.css';
 import logo from './logo.png';
 
 // Componente de pantalla de inicio
-function Home({ onPredictStart, onDataStart }) {
+function Home({ onPredictStart, onDataStart, onPredictionsStart }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
       <img src={logo} alt="Logo" className="logo1" />
@@ -17,18 +17,65 @@ function Home({ onPredictStart, onDataStart }) {
       <div style={{ display: 'flex', gap: '20px', marginTop: '20px' }}>
         <button onClick={onPredictStart} className="primary-button">Predecir</button>
         <button onClick={onDataStart} className="primary-button">Ver Datos</button>
+        <button onClick={onPredictionsStart} className="primary-button">Ver Predicciones</button>
       </div>
     </div>
   );
 }
+
+function PredictionDetails({ targetName, data }) {
+  // Caso 1: No hay datos para este target en la respuesta de la API.
+  if (!data) {
+    return (
+      <li className="prediction-item">
+        <strong>{targetName}:</strong>
+        <span className="prediction-label-nodata">No disponible</span>
+      </li>
+    );
+  }
+
+  // Caso 2: 'data' es un string simple (ej: "Modelo no disponible").
+  if (typeof data !== 'object') {
+    return (
+      <li className="prediction-item">
+        <strong>{targetName}:</strong>
+        <span className="prediction-label-nodata">{data}</span>
+      </li>
+    );
+  }
+
+  // Caso 3: 'data' es el objeto completo con la predicción y las métricas.
+  // Generamos una clase CSS dinámica para poder darle color a la etiqueta.
+  const labelClass = data.prediccion ? data.prediccion.toLowerCase().split('/')[0].replace(' ', '-') : 'nodata';
+
+  return (
+    <li className="prediction-item">
+      <div className="prediction-main">
+        <strong>{targetName}:</strong>
+        <span className={`prediction-label prediction-${labelClass}`}>
+          {data.prediccion || 'N/D'}
+        </span>
+      </div>
+      <div className="metrics">
+        <span><strong>Modelo:</strong> {data.modelo_usado || 'N/D'}</span>
+        <span><strong>F1 (CV):</strong> {data.f1_score_cv || 'N/D'}</span>
+        <span><strong>ROC AUC (CV):</strong> {data.roc_auc_cv || 'N/D'}</span>
+      </div>
+    </li>
+  );
+}
+
+
 // Componente principal para seleccionar opciones y predecir
 function Predict() {
   const [selectedOption, setSelectedOption] = useState('');
   const [predictionResult, setPredictionResult] = useState([]);
   const [options, setOptions] = useState([]);
   const [activeTab, setActiveTab] = useState(null);
-  const navigate = useNavigate(); // para usar la navegación
+  const [isLoading, setIsLoading] = useState(false); // Para mostrar un feedback de carga
+  const navigate = useNavigate();
 
+  // Carga las opciones del dropdown una sola vez cuando el componente se monta
   useEffect(() => {
     const fetchOptions = async () => {
       try {
@@ -41,61 +88,84 @@ function Predict() {
     fetchOptions();
   }, []);
 
+  // Función para manejar la llamada a la API de predicción
   const handlePredict = async () => {
-    if (selectedOption) {
-      // Verificar si ya existe una predicción para el sitio seleccionado
-      if (predictionResult.some(result => result.option === selectedOption)) {
-        alert('Ya existe una predicción para este sitio.');
-        return;
-      }
-      try {
-        const response = await axios.post('http://localhost:5001/predict', {
-          option: selectedOption,
-        });
-        if (selectedOption === 'Todos') {
-          setPredictionResult((prevResults) => [...prevResults, ...response.data.map(prediction => ({ ...prediction, option: prediction.codigo_perfil }))]);
-        } else {
-          setPredictionResult((prevResults) => [...prevResults, { ...response.data, option: selectedOption }]);
-        }
-        setActiveTab(selectedOption); // Activar el tab de la nueva predicción
-      } catch (error) {
-        console.error('Error al obtener la predicción:', error);
-      }
-    } else {
+    if (!selectedOption) {
       alert('Por favor, selecciona una opción antes de predecir.');
+      return;
+    }
+    
+    // Evitar predicciones duplicadas en las pestañas
+    if (selectedOption !== 'Todos' && predictionResult.some(result => result.option === selectedOption)) {
+      alert('Ya existe una predicción para este sitio. Ciérrala para volver a predecir.');
+      setActiveTab(selectedOption);
+      return;
+    }
+
+    setIsLoading(true); // Activa el estado de carga
+    try {
+      const response = await axios.post('http://localhost:5001/predict', {
+        option: selectedOption,
+      });
+
+      // La API siempre devuelve un array, lo procesamos
+      const newPredictions = response.data.map(prediction => ({
+        ...prediction,
+        option: prediction.codigo_perfil
+      }));
+      
+      // Si se predijo "Todos", reemplazamos los resultados. Si no, los añadimos.
+      if (selectedOption === 'Todos') {
+        setPredictionResult(newPredictions);
+        setActiveTab(newPredictions.length > 0 ? newPredictions[0].option : null);
+      } else {
+        setPredictionResult(prevResults => [...prevResults, ...newPredictions]);
+        setActiveTab(newPredictions[0].option);
+      }
+
+    } catch (error) {
+      console.error('Error al obtener la predicción:', error);
+      alert('Ocurrió un error al contactar el servidor de predicción.');
+    } finally {
+      setIsLoading(false); // Desactiva el estado de carga
     }
   };
 
-  const handleRemovePrediction = (option) => {
-    setPredictionResult((prevResults) => {
-      const updatedResults = prevResults.filter((result) => result.option !== option);
-      if (activeTab === option) {
+  const handleRemovePrediction = (optionToRemove) => {
+    setPredictionResult(prevResults => {
+      const updatedResults = prevResults.filter(result => result.option !== optionToRemove);
+      // Si la pestaña cerrada era la activa, activamos la primera de la lista o ninguna
+      if (activeTab === optionToRemove) {
         setActiveTab(updatedResults.length > 0 ? updatedResults[0].option : null);
       }
       return updatedResults;
     });
   };
 
-  const handleTabClick = (option) => {
-    setActiveTab(option);
-  };
+  // Encontramos el objeto del resultado activo para no repetir la búsqueda en el JSX
+  const activeResult = activeTab ? predictionResult.find(result => result.option === activeTab) : null;
 
   return (
     <div className="container">
-      <button onClick={() => navigate('/')} className="back-button">&larr; Volver</button>
-      <img src={logo} alt="Logo" className="logo2" />
+      <div className="titulo">
       <h2>Realizar Predicción</h2>
-      <select
-        value={selectedOption}
-        onChange={(e) => setSelectedOption(e.target.value)}
-        style={{ width: '50%', fontSize: '20px', marginTop: '20px' }}
-      >
-        <option value="">Selecciona una opción</option>
-        {options.map((option) => (
-          <option key={option} value={option}>{option}</option>
-        ))}
-      </select>
-      <button onClick={handlePredict} className="primary-button" style={{ marginTop: '20px' }}>Predecir</button>
+      </div>
+      
+      <div className="predict-controls">
+        <select
+          value={selectedOption}
+          onChange={(e) => setSelectedOption(e.target.value)}
+          disabled={isLoading}
+        >
+          <option value="">Selecciona un sitio</option>
+          {options.map((option) => (
+            <option key={option} value={option}>{option}</option>
+          ))}
+        </select>
+        <button onClick={handlePredict} className="primary-button" disabled={isLoading}>
+          {isLoading ? 'Prediciendo...' : 'Predecir'}
+        </button>
+      </div>
 
       {predictionResult.length > 0 && (
         <div className="prediction-container">
@@ -104,20 +174,25 @@ function Predict() {
               <div
                 key={result.option}
                 className={`tab-title ${activeTab === result.option ? 'active' : ''}`}
-                onClick={() => handleTabClick(result.option)}
+                onClick={() => setActiveTab(result.option)}
               >
-                {`Sitio seleccionado: ${result.option}`}
-                <button className="close-tab" onClick={() => handleRemovePrediction(result.option)}>×</button>
+                {`Sitio: ${result.option}`}
+                <button 
+                  className="close-tab" 
+                  onClick={(e) => { e.stopPropagation(); handleRemovePrediction(result.option); }}
+                  title={`Cerrar predicción para ${result.option}`}
+                >×</button>
               </div>
             ))}
           </div>
-          {activeTab && predictionResult.some(result => result.option === activeTab) && (
+          
+          {activeResult && (
             <div className="prediction-tab">
-              <p>Predicción:</p>
+              <h3>Resultados para {activeResult.option}</h3>
               <ul>
-                <li>Cianobacterias Total: {predictionResult.find(result => result.option === activeTab)['Cianobacterias Total']}</li>
-                <li>Clorofila (µg/l): {predictionResult.find(result => result.option === activeTab)['Clorofila (µg/l)']}</li>
-                <li>Dominancia de Cianobacterias (%): {predictionResult.find(result => result.option === activeTab)['Dominancia de Cianobacterias (%)']}</li>
+                <PredictionDetails targetName="Clorofila" data={activeResult.Clorofila} />
+                <PredictionDetails targetName="Cianobacterias" data={activeResult.Cianobacterias} />
+                <PredictionDetails targetName="Dominancia" data={activeResult.Dominancia} />
               </ul>
             </div>
           )}
@@ -126,6 +201,7 @@ function Predict() {
     </div>
   );
 }
+
 
 // Componente para mostrar los datos del DataFrame
 function Datos() {
@@ -210,7 +286,7 @@ function Datos() {
 
   return (
     <div className="container">
-      <button onClick={() => navigate('/')} className="back-button">&larr; Volver</button>
+      <button onClick={() => navigate('/')} className="back-button">&larr;</button>
       <img src={logo} alt="Logo" className="logo2" />
       <h2>Datos del DataFrame</h2>
 
@@ -261,6 +337,110 @@ function Datos() {
     </div>
   );
 }
+
+// Componente para mostrar los datos del DataFrame
+function Predicciones() {
+  const [tableData, setTableData] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 4;
+  const navigate = useNavigate();
+
+  // La función para obtener los datos ahora se puede reutilizar
+  const fetchData = async () => {
+    try {
+      const response = await axios.get('http://localhost:5001/predicciones');
+      setTableData(response.data);
+    } catch (error) {
+      console.error('Error al obtener los datos:', error);
+      // Opcional: limpiar la tabla si hay un error al cargar
+      setTableData([]);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const handlePageChange = (pageNumber) => {
+    setCurrentPage(pageNumber);
+  };
+
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const currentItems = tableData.slice(startIndex, startIndex + itemsPerPage);
+  const totalPages = Math.ceil(tableData.length / itemsPerPage);
+
+  // Crear el rango de botones a mostrar
+  const getPaginationButtons = () => {
+    const buttons = [];
+    const maxButtons = 10; // Cantidad máxima de botones que se muestran
+
+    let startPage = Math.max(1, currentPage - Math.floor(maxButtons / 2));
+    let endPage = Math.min(totalPages, startPage + maxButtons - 1);
+
+    if (endPage - startPage < maxButtons - 1) {
+      startPage = Math.max(1, endPage - maxButtons + 1);
+    }
+
+    for (let i = startPage; i <= endPage; i++) {
+      buttons.push(
+        <button
+          key={i}
+          onClick={() => handlePageChange(i)}
+          className={currentPage === i ? 'active' : ''}
+        >
+          {i}
+        </button>
+      );
+    }
+    return buttons;
+  };
+
+  return (
+    <div className="container">
+      <button onClick={() => navigate('/')} className="back-button">&larr;</button>
+      <img src={logo} alt="Logo" className="logo2" />
+      <h2>Datos del DataFrame</h2>
+
+      {tableData.length > 0 ? (
+        <>
+          <div className="table-container">
+            <table border="1">
+              <thead>
+                <tr>
+                  {Object.keys(tableData[0]).map((key) => (
+                    <th key={key}>{key}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {currentItems.map((row, index) => (
+                  <tr key={index}>
+                    {Object.values(row).map((value, i) => (
+                      // Añadido un pequeño cambio para que los 'null' no se muestren
+                      <td key={i}>{value === null ? "" : String(value)}</td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="pagination">
+            <button onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1}>
+              &laquo; Anterior
+            </button>
+            {getPaginationButtons()}
+            <button onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages}>
+              Siguiente &raquo;
+            </button>
+          </div>
+        </>
+      ) : (
+        <p>Cargando datos...</p>
+      )}
+    </div>
+  );
+}
+
 // Componente de la aplicación principal
 function App() {
   const navigate = useNavigate();
@@ -273,12 +453,17 @@ function App() {
     navigate('/datos');
   };
 
+  const handlePredictionsStart = () => {
+    navigate('/predicciones');
+  };
+
   return (
     <div className="App">
       <Routes>
-        <Route path="/" element={<Home onPredictStart={handlePredictStart} onDataStart={handleDataStart} />} />
+        <Route path="/" element={<Home onPredictStart={handlePredictStart} onDataStart={handleDataStart} onPredictionsStart={handlePredictionsStart} />} />
         <Route path="/predict" element={<Predict />} />
         <Route path="/datos" element={<Datos />} />
+        <Route path="/predicciones" element={<Predicciones />} />
       </Routes>
     </div>
   );

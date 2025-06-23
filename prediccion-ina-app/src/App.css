@@ -7,57 +7,68 @@ body {
   overflow-x: hidden; /* Evitar scroll horizontal innecesario */
 }
 
-h2 {
-  text-align: center;
-  color: #005b96; /* Azul intermedio */
-  margin-top: 10px;
-  font-size: 24px; /* Reducir tamaño para mejor ajuste */
+/* Contenedor principal de la página */
+.container {
+  display: flex;
+  flex-direction: column; /* Apila los elementos verticalmente */
+  align-items: center;    /* Centra los elementos horizontalmente */
+  padding-top: 20px;
+  width: 100%;
 }
 
+/* Div que contiene el título */
+.titulo {
+  width: 100%;
+  text-align: center; /* Asegura que el h2 esté centrado */
+  margin-bottom: 20px; /* <<-- 1. Reduce el espacio debajo del título */
+}
+
+.titulo h2 {
+  color: #005b96;
+  font-size: 2em; /* Un poco más grande para darle jerarquía */
+  margin: 0; /* Quitamos márgenes por defecto del h2 */
+}
+
+/* Contenedor para el <select> y el <button> */
+.predict-controls {
+  display: flex;           /* Pone los elementos en una fila */
+  justify-content: center; /* Centra el conjunto de controles horizontalmente */
+  align-items: center;     /* <<-- Alinea verticalmente el select y el botón */
+  gap: 15px;               /* <<-- 2. Añade un espacio de 15px entre ellos */
+  width: 100%;
+}
+
+/* Estilos para el menú desplegable */
+.predict-controls select {
+  padding: 10px 15px;
+  font-size: 16px;
+  min-width: 200px;
+  text-align: center;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  box-sizing: border-box; /* Asegura que el padding no afecte la altura total */
+  height: 45px; /* Altura fija para alinear con el botón */
+}
+
+/* Estilos para el botón principal */
 .primary-button {
-  background-color: #007bb5; /* Azul intenso */
+  background-color: #007bb5;
   color: white;
   border: none;
   padding: 10px 20px;
   font-size: 16px;
   font-weight: bold;
   cursor: pointer;
-  border-radius: 8px; /* Borde redondeado */
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* Sombra */
-  transition: transform 0.3s ease-in-out, background-color 0.3s ease-in-out;
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  transition: transform 0.2s, background-color 0.2s;
+  box-sizing: border-box; /* Asegura que el padding no afecte la altura total */
+  height: 45px; /* Misma altura fija que el select */
 }
 
 .primary-button:hover {
-  transform: scale(1.05); /* Agrandarse al pasar el mouse */
-  background-color: #005f8b; /* Azul más oscuro */
-}
-
-.back-button {
-  background-color: transparent;
-  color: #004d73; /* Azul oscuro */
-  font-size: 14px;
-  font-weight: bold;
-  border: none;
-  cursor: pointer;
-  margin-bottom: 10px;
-  align-self: flex-start;
-  margin-left: 10px;
-}
-
-.container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  margin-top: 10px;
-  max-width: 100%;
-}
-
-select {
-  padding: 8px;
-  margin-top: 10px;
-  font-size: 18px;
-  width: 40%;
-  text-align: center;
+  transform: translateY(-2px); /* Un efecto de "levantarse" sutil */
+  background-color: #005f8b;
 }
 
 .table-container {
@@ -94,7 +105,7 @@ td {
 .prediction-container {
   margin-top: 10px;
   border: 1px solid #b3e5fc;
-  padding: 15px;
+  padding: 5px;
   border-radius: 10px;
   width: 80%;
   max-width: 800px;
@@ -108,11 +119,12 @@ td {
   gap: 5px;
   justify-content: center;
   margin-bottom: 10px;
+  margin-top: 10px;
 }
 
 .tab-title {
-  padding: 8px;
-  border-radius: 6px;
+  padding: 5px;
+  border-radius: 4px;
   background-color: #007bb5; /* Azul oscuro para tabs inactivos */
   color: white;
   cursor: pointer;
@@ -137,20 +149,11 @@ td {
   margin-left: 5px;
 }
 
-.prediction-tab {
-  display: flex;
-  flex-direction: column;
-  border: none;
-  border-radius: 8px;
-  background-color: #81c3d7; /* Azul claro para resaltar las predicciones */
-  margin-bottom: 10px;
-  padding: 10px;
-  position: relative;
-}
 
-.prediction-tab p, .prediction-tab ul {
-  color: white;
-  font-weight: bold;
+.prediction-tab ul {
+  list-style-type: none;
+  padding: 0;
+  margin: 0;
 }
 
 .logo2 {
@@ -197,3 +200,67 @@ td {
   color: #004d73; /* Azul oscuro */
   cursor: not-allowed;
 }
+
+/* Predict.css */
+.prediction-item {
+  background-color: white;
+  border: 1px solid #cce1f1;
+  border-radius: 8px;
+  padding: 15px;
+  margin-bottom: 15px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.prediction-main {
+  display: flex;
+  justify-content: space-between; /* <-- Pone los elementos en extremos opuestos */
+  align-items: center;
+  font-size: 1.2em;
+  margin-bottom: 10px;
+}
+
+.prediction-main strong {
+  color: #333;
+}
+
+/* Estilo para la etiqueta de predicción (la píldora de color) */
+.prediction-label {
+  font-weight: bold;
+  padding: 6px 12px;
+  border-radius: 16px;
+  color: white;
+  font-size: 0.9em;
+  text-align: center;
+  min-width: 150px; /* Ancho mínimo para consistencia */
+}
+/* Colores específicos para cada nivel de alerta */
+.prediction-alerta, .prediction-alerta-1 { /* Alerta 1 */
+  background-color: #f1c40f; /* Amarillo */
+  color: #333;
+}
+.prediction-emergencia, .prediction-alerta-2 { /* Alerta 2 */
+  background-color: #e74c3c; /* Rojo */
+}
+.prediction-vigilancia, .prediction-bajo { /* Vigilancia */
+  background-color: #3498db; /* Azul */
+}
+.prediction-nodata {
+  background-color: #bdc3c7; /* Gris */
+}
+
+/* Contenedor para las métricas (Modelo, F1, etc.) */
+.metrics {
+  font-size: 0.9em;
+  color: #555;
+  border-top: 1px dashed #e0e0e0;
+  padding-top: 10px;
+  display: flex;
+  justify-content: space-between; /* Espacia las métricas uniformemente */
+  flex-wrap: wrap; /* Permite que pasen a la siguiente línea si no caben */
+}
+
+.metrics span {
+  margin-right: 15px;
+}
+
+

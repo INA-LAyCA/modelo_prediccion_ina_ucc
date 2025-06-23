@@ -14,6 +14,9 @@ __pycache__/
 *.pyo
 *.pyd
 
+# Directorios de Keras Tuner
+kt_dir_*
+tuner_logs/
 
 #archivos 
 CodigosUtiles.md
