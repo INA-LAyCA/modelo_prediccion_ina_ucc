@@ -147,9 +147,9 @@ function Predict() {
 
   return (
     <div className="container">
-      <div className="titulo">
+      <button onClick={() => navigate('/')} className="back-button">&larr;</button>
+      <img src={logo} alt="Logo" className="logo2" />
       <h2>Realizar Predicción</h2>
-      </div>
       
       <div className="predict-controls">
         <select
@@ -290,7 +290,7 @@ function Datos() {
       <img src={logo} alt="Logo" className="logo2" />
       <h2>Datos del DataFrame</h2>
 
-      {/* --- 3. NUEVO BOTÓN DE ACTUALIZAR --- */}
+      {/* --- 3. NUEVO BOTÓN DE ACTUALIZAR --- }
       <div style={{ margin: '20px 0' }}>
         <button onClick={handleUpdate} disabled={isUpdating} className="primary-button">
           {isUpdating ? 'Procesando en Servidor...' : 'Forzar Actualización de Datos'}

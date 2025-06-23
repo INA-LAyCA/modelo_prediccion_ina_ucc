@@ -764,7 +764,6 @@ for target in TARGETS_A_PREDECIR:
             print(f"  ⚠️ No encontrado: {pkl_path}")
 print("✅ Carga de modelos completa.\n")
 
-# En app.py
 
 def hacer_prediccion_para_sitio(sitio: str) -> dict:
     """
