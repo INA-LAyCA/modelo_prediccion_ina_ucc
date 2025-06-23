@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 from sqlalchemy import create_engine
+from sqlalchemy import text
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from sklearn.model_selection import train_test_split
@@ -169,6 +170,7 @@ def obtener_dataframe():
     'condicion_termica'
     ] = 'SD'
     df_final=union_precipitacion(df_final, engine2)
+
 
      # --- GUARDAR EN LA BASE DE DATOS ---
     #try:
@@ -649,6 +651,8 @@ def condicion_termica(df_principal, db_engine_param):
 
 # --- 3. LÓGICA DE ACTUALIZACIÓN Y ESCUCHA (WORKER Y LISTENER) ---
 
+
+
 def actualizar_df():
     """
     Función "trabajadora". Llama al pipeline pesado y guarda el resultado.
@@ -671,6 +675,27 @@ def actualizar_df():
         except Exception as e:
             print(f"WORKER: ERROR en el proceso de actualización en segundo plano: {e}")
 
+
+DELAY_SEGUNDOS = 10
+_debounce_timer = None
+_changed_tables = set()
+
+def _schedule_update():
+    """Inicia/reinicia el timer para llamar a actualizar_df() tras DELAY_SEGUNDOS."""
+    global _debounce_timer
+    if _debounce_timer and _debounce_timer.is_alive():
+        _debounce_timer.cancel()
+    _debounce_timer = threading.Timer(DELAY_SEGUNDOS, _run_update)
+    _debounce_timer.daemon = True
+    _debounce_timer.start()
+
+def _run_update():
+    """Se ejecuta cuando pasan DELAY_SEGUNDOS sin nuevas notificaciones."""
+    global _changed_tables
+    print(f"[Listener] Ejecutando actualizar_df(), cambios de tablas: {_changed_tables}")
+    actualizar_df()
+    _changed_tables.clear()
+
 def database_listener():
     """
     Función que corre en un hilo de fondo 24/7.
@@ -691,22 +716,15 @@ def database_listener():
             while True:
                 # Espera eficientemente por notificaciones. Timeout de 60s para no mantener una conexión inactiva indefinidamente.
                 if select.select([conn], [], [], 60) == ([], [], []):
-                    pass # Timeout, el bucle continúa y la conexión se mantiene viva.
-                else:
-                    conn.poll() # Procesa notificaciones pendientes
-                    while conn.notifies:
-                        notification = conn.notifies.pop(0)
-                        print(f"LISTENER: ¡Notificación recibida en el canal '{notification.channel}'!")
-                        
-                        # Inicia el procesamiento en un nuevo hilo para no bloquear al listener
-                        # mientras se procesan los datos.
-                        processing_thread = threading.Thread(target=actualizar_df)
-                        processing_thread.start()
-                        
-                        # Espera un poco para evitar procesar múltiples notificaciones seguidas si la carga de datos fue en lote
-                        time.sleep(15) 
-                        # Limpia cualquier otra notificación que haya llegado mientras tanto
-                        while conn.notifies: conn.notifies.pop(0)
+                    continue # Timeout, el bucle continúa y la conexión se mantiene viva.
+                
+                conn.poll() # Procesa notificaciones pendientes
+                while conn.notifies:
+                    notification = conn.notifies.pop(0)
+                    tabla = notification.payload or notification.channel
+                    _changed_tables.add(tabla)
+                    print(f"LISTENER: ¡Notificación recibida en el canal '{notification.channel}'!")
+                    _schedule_update()    
 
         except (psycopg2.OperationalError, psycopg2.InterfaceError) as e:
             print(f"LISTENER: Error de conexión: {e}. Reconectando en 30 segundos...")
@@ -756,6 +774,29 @@ try:
 except Exception as e:
     print(f"ERROR CRÍTICO AL CARGAR LOS MODELOS: {e}. La predicción no funcionará.")
 
+from sqlalchemy import text
+
+def guardar_prediccion_historica(codigo_perfil, fecha_prediccion, target, clase_alerta):
+    """
+    Inserta o actualiza (upsert) una fila en predicciones_historicas.
+    """
+    sql = text("""
+    INSERT INTO predicciones_historicas
+      (codigo_perfil, fecha_prediccion, target, clase_alerta)
+    VALUES (:codigo_perfil, :fecha_prediccion, :target, :clase_alerta)
+    ON CONFLICT (codigo_perfil, fecha_prediccion, target)
+    DO UPDATE SET
+      clase_alerta        = EXCLUDED.clase_alerta,
+      timestamp_ejecucion = now();
+    """)
+    params = {
+        'codigo_perfil':    str(codigo_perfil),
+        'fecha_prediccion': fecha_prediccion,                      # datetime.date está bien
+        'target':           str(target),
+        'clase_alerta':     int(clase_alerta),                     # <- aquí el cast
+    }
+    with engine3.begin() as conn:
+        conn.execute(sql, params)
 
 # =======================================================================
 # --- FUNCIÓN AUXILIAR PARA PREPARAR EL VECTOR DE PREDICCIÓN ---
@@ -908,6 +949,8 @@ def hacer_prediccion_para_sitio(sitio):
             df_historial['condicion_termica'].fillna(3, inplace=True)
             df_historial['condicion_termica'] = df_historial['condicion_termica'].astype(int)
         #
+        last_date = pd.to_datetime(df_historial['fecha'].iloc[0])
+        fecha_prediccion = (last_date + pd.DateOffset(months=1)).date()
 
         # Preparar el vector de entrada
         X_para_predecir = preparar_vector_para_predecir(df_historial, artefactos)
@@ -924,11 +967,18 @@ def hacer_prediccion_para_sitio(sitio):
         if isinstance(modelo, tf.keras.Model):
             pred_probs = modelo.predict(X_scaled)
             prediccion_clase = np.argmax(pred_probs, axis=1)[0]
+            prob=float(pred_probs.max())
         else: # Asumimos Sklearn
             prediccion_clase = modelo.predict(X_scaled)[0]
         
         etiqueta_predicha = CLASS_LABELS_MAP_ALERTA.get(int(prediccion_clase), "Desconocido")
         
+        guardar_prediccion_historica(
+            codigo_perfil=sitio,
+            fecha_prediccion=fecha_prediccion,
+            target=target_key,
+            clase_alerta=prediccion_clase
+        )
         # Mapear a los nombres que tu frontend original esperaba para la predicción simple
         if target_key == 'Cianobacterias':
             predicciones_finales['Cianobacterias Total'] = etiqueta_predicha
