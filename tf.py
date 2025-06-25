@@ -22,6 +22,7 @@ import select
 import os
 import io
 import joblib
+import subprocess
 import tensorflow as tf
 from entrenar_modelos import preprocess_and_feature_engineer
 
@@ -95,7 +96,7 @@ def obtener_dataframe():
     # Crear nuevas columnas/variables de entrada basadas en otras columnas
     df_final['Cianobacterias Total'] = df_final[cols_cianobact].apply(
     lambda row: np.nan if row.isnull().any() else row.sum(), axis=1)
-    df_final.drop(columns=['Total Algas Lab. (Cel/L)'] + cols_cianobact, inplace=True)
+    df_final.drop(columns=cols_cianobact, inplace=True)
 
     # Convertir la columna 'fecha' a datetime, manejando errores
     df_final['fecha'] = pd.to_datetime(df_final['fecha'], format='%Y-%m-%d', errors='coerce')
@@ -670,10 +671,38 @@ def actualizar_df():
                 print(f"WORKER: Guardando DataFrame en la tabla '{nombre_tabla_destino}'...")
                 df_procesado.to_sql(nombre_tabla_destino, engine3, if_exists='replace', index=False)
                 print("WORKER: ¡Guardado en la base de datos exitoso!")
+                print("WORKER: Reentrenando modelos")
+                reentrenar_modelos()
+                print("WORKER: Recargando en memoria los modelos entrenados…")
+                recargar_modelos()
+                print("WORKER: Modelos recargados exitosamente.")
             else:
                 print("WORKER: El procesamiento no generó un DataFrame. No se guardó nada.")
+       
+            print("WORKER: Recargando modelos en memoria…")
+            recargar_modelos()
+            print("WORKER: Modelos recargados correctamente.")
         except Exception as e:
             print(f"WORKER: ERROR en el proceso de actualización en segundo plano: {e}")
+
+def reentrenar_modelos():
+    """
+    Lanza el script entrenar_modelos.py como un subproceso y muestra su salida.
+    """
+    ruta_script = os.path.join(os.path.dirname(__file__), 'entrenar_modelos.py')
+    try:
+        resultado = subprocess.run(
+            ['python3', ruta_script],
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        print("WORKER: Salida de entrenar_modelos.py:")
+        print(resultado.stdout)
+    except subprocess.CalledProcessError as e:
+        print("WORKER ERROR: El retraining falló:")
+        print(e.stderr)
+        # opcional: re-lanzar o marcar error según tu lógica
 
 
 DELAY_SEGUNDOS = 10
@@ -733,6 +762,9 @@ def database_listener():
             print(f"LISTENER: Ocurrió un error inesperado: {e}. Intentando reiniciar en 30 segundos...")
             time.sleep(30)
 
+
+modelos_lock = threading.Lock()
+modelos_cargados = {}
 # =======================================================================
 # --- CARGA DE MODELOS Y ARTEFACTOS AL INICIO DE LA APP ---
 # =======================================================================
@@ -745,25 +777,38 @@ CLASS_LABELS_MAP_ALERTA = {
     2: "Alerta 2/Alto"
 }
 
-# --- Carga inicial de modelos y artefactos ---
-print("🔄 Cargando modelos y artefactos entrenados...")
-modelos_cargados = {t:{} for t in TARGETS_A_PREDECIR}
+def recargar_modelos():
+    """
+    Vuelve a leer de disco todos los artefactos y actualiza la variable global modelos_cargados.
+    """
+    print("🔄 Recargando modelos y artefactos entrenados…")
+    temp = { target: {} for target in TARGETS_A_PREDECIR }
 
-for target in TARGETS_A_PREDECIR:
-    for sitio in SITIOS_A_ANALIZAR:
-        pkl_path  = f"modelos_entrenados/artefactos_{sitio}_{target}.pkl"
-        keras_path= f"modelos_entrenados/modelo_{sitio}_{target}.keras"
-        if os.path.exists(pkl_path):
-            artefactos = joblib.load(pkl_path)
-            # Si hay modelo Keras separado, lo cargamos también
-            if os.path.exists(keras_path):
-                artefactos['modelo'] = tf.keras.models.load_model(keras_path)
-            modelos_cargados[target][sitio] = artefactos
-            print(f"  • {sitio}-{target} cargado")
-        else:
-            print(f"  ⚠️ No encontrado: {pkl_path}")
-print("✅ Carga de modelos completa.\n")
+    for target in TARGETS_A_PREDECIR:
+        for sitio in SITIOS_A_ANALIZAR:
+            pkl_path   = f"modelos_entrenados/artefactos_{sitio}_{target}.pkl"
+            keras_path = f"modelos_entrenados/modelo_{sitio}_{target}.keras"
 
+            if not os.path.exists(pkl_path):
+                print(f"  ⚠️ No encontrado: {pkl_path}")
+                continue
+
+            try:
+                artefactos = joblib.load(pkl_path)
+                # Si hay un modelo Keras separado, lo cargamos también
+                if os.path.exists(keras_path):
+                    artefactos['modelo'] = tf.keras.models.load_model(keras_path)
+                temp[target][sitio] = artefactos
+                print(f"  • {sitio}-{target} cargado")
+            except Exception as e:
+                print(f"  ❌ Error cargando {sitio}-{target}: {e}")
+
+    # Una vez construido todo el dict sin errores, actualizamos la variable global
+    with modelos_lock:
+        global modelos_cargados
+        modelos_cargados = temp
+
+    print("✅ Recarga de modelos completada.\n")
 
 def hacer_prediccion_para_sitio(sitio: str) -> dict:
     """
