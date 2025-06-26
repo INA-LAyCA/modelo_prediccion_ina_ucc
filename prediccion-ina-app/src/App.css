@@ -68,9 +68,35 @@ body {
   height: 45px; /* Altura fija para alinear con el botón */
 }
 
+.prediction-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  flex-wrap: wrap; /* Para que se adapte en pantallas pequeñas */
+}
+
+.prediction-header h3 {
+  margin: 0;
+}
+
+.prediction-month {
+  margin: 0;
+  font-weight: 400;
+  font-size: 1.1em;
+  color: #555;
+  background-color: #eef2f5;
+  padding: 8px 12px;
+  border-radius: 8px;
+}
+
+.prediction-month strong {
+  color: #005b96;
+}
+
 /* Estilos para el botón principal */
 .primary-button {
-  background-color: #007bb5;
+  background-color: #005b96;
   color: white;
   border: none;
   padding: 10px 20px;
@@ -86,38 +112,53 @@ body {
 
 .primary-button:hover {
   transform: translateY(-2px); /* Un efecto de "levantarse" sutil */
-  background-color: #005f8b;
+  background-color: #005b96;
 }
 
 .table-container {
   max-width: 90%;
   overflow-x: auto;
-  margin: 10px 0;
+  margin: 1px 0;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* Añadir sombra para dar efecto de contenedor */
 }
 
 table {
-  margin: 10px auto;
+  margin: 1px;
   border-collapse: collapse;
   width: 100%;
   background-color: white;
   border: 1px solid #b3e5fc; /* Celeste claro */
+  
 }
 
 th, td {
-  border: 1px solid #b3e5fc; /* Celeste claro */
-  padding: 5px;
   text-align: center;
-  font-size: 14px; /* Reducir tamaño de fuente para mejor ajuste */
+  vertical-align: middle;
+  border-right: 1px solid #e9ecef; /* Separador vertical */
+  
+}
+
+th:last-child,
+td:last-child {
+  border-right: none;
 }
 
 th {
-  background-color: #0288d1; /* Azul intermedio */
-  color: white;
+  padding: 1px 3px; /* Padding más generoso */
+  background-color: #004d73;
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 2px solid #dee2e6;
 }
 
 td {
-  color: #004d73; /* Azul oscuro */
+  padding: 2px 6px;
+  font-size: 12px;
+  color: #343a40;
+  border-bottom: 1px solid #e0f7fa;
 }
 
 .prediction-container {
@@ -134,28 +175,31 @@ td {
 .tabs-header {
   display: flex;
   flex-wrap: wrap;
-  gap: 5px;
-  justify-content: center;
-  margin-bottom: 10px;
-  margin-top: 10px;
+  gap: 8px; /* Un pequeño espacio entre las pestañas */
+  padding-bottom: 5px; 
+  justify-content: center; 
+  margin-top: 5px;
 }
 
+
+
 .tab-title {
-  padding: 5px;
-  border-radius: 4px;
-  background-color: #007bb5; /* Azul oscuro para tabs inactivos */
+  padding: 6px 12px;
+  border-radius: 8px;
+  background-color: #005b96; /* Azul oscuro para tabs inactivos */
   color: white;
   cursor: pointer;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 5px;
-  flex: 1 1 calc(20% - 10px); /* Ajustar el ancho de las pestañas para mejor distribución */
-  max-width: calc(20% - 10px);
+  gap: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 .tab-title.active {
-  background-color: #81c3d7; /* Color del contenedor de predicción para tabs activos */
+  background-color: #ffffff;
+  color: #005b96; /* Color del contenedor de predicción para tabs activos */
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  border: 1px solid #cce1f1;
 }
 
 .close-tab {
@@ -164,7 +208,10 @@ td {
   color: #ff0000; /* Rojo para la 'X' */
   font-weight: bold;
   cursor: pointer;
-  margin-left: 5px;
+  margin-left: 8px;
+  font-size: 18px;
+  line-height: 1;
+  padding: 0 2px;
 }
 
 
@@ -219,6 +266,26 @@ td {
   cursor: not-allowed;
 }
 
+/* --- Contenedor de Filtros (Centrado) --- */
+.filters-container {
+  display: flex;
+  justify-content: center; /* <<-- ¡CAMBIO CLAVE! Centra los filtros horizontalmente */
+  gap: 10px;
+  width: 100%;
+  margin-bottom: 10px; /* Espacio antes de la tabla */
+}
+
+/* Estilo para los menús desplegables (sin cambios, pero se incluye por completitud) */
+.filter-select {
+  padding: 8px;
+  font-size: 12px;
+  border: 1px solid #ced4da;
+  border-radius: 8px;
+  background-color: white;
+  min-width: 20px;
+  cursor: pointer;
+}
+
 /* Predict.css */
 .prediction-item {
   background-color: white;
@@ -253,18 +320,20 @@ td {
 }
 /* Colores específicos para cada nivel de alerta */
 .prediction-alerta, .prediction-alerta-1 { /* Alerta 1 */
-  background-color: #f1c40f; /* Amarillo */
+  background-color: #ebc52d; /* Amarillo */
   color: #333;
 }
-.prediction-emergencia, .prediction-alerta-2 { /* Alerta 2 */
-  background-color: #e74c3c; /* Rojo */
+.prediction-emergencia, .prediction-alerta-2, .prediction-dominante { /* Alerta 2 */
+  background-color: #cf4132; /* Rojo */
 }
-.prediction-vigilancia, .prediction-bajo { /* Vigilancia */
-  background-color: #3498db; /* Azul */
+.prediction-vigilancia, .prediction-bajo, .prediccion-no-dominante { /* Vigilancia */
+  background-color: #5ab151; /* Azul */
 }
 .prediction-nodata {
   background-color: #bdc3c7; /* Gris */
 }
+
+
 
 /* Contenedor para las métricas (Modelo, F1, etc.) */
 .metrics {

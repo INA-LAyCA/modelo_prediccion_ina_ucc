@@ -2,7 +2,7 @@
 // En el directorio del proyecto, instalar las siguientes dependencias:
 // npm install axios react-router-dom
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { BrowserRouter as Router, Route, Routes, useNavigate } from 'react-router-dom';
 import './App.css';
@@ -145,6 +145,20 @@ function Predict() {
   // Encontramos el objeto del resultado activo para no repetir la búsqueda en el JSX
   const activeResult = activeTab ? predictionResult.find(result => result.option === activeTab) : null;
 
+  const formatPredictionDate = (dateString) => {
+    if (!dateString) return '';
+    try {
+      const date = new Date(dateString);
+      // 'es-ES' para nombres de meses en español. 'long' para el nombre completo.
+      const month = date.toLocaleString('es-ES', { month: 'long' });
+      const year = date.getFullYear();
+      // Capitaliza la primera letra del mes
+      return `${month.charAt(0).toUpperCase() + month.slice(1)} ${year}`;
+    } catch (error) {
+      return '';
+    }
+  };
+
   return (
     <div className="container">
       <button onClick={() => navigate('/')} className="back-button">&larr;</button>
@@ -169,6 +183,7 @@ function Predict() {
 
       {predictionResult.length > 0 && (
         <div className="prediction-container">
+          
           <div className="tabs-header">
             {predictionResult.map((result) => (
               <div
@@ -188,7 +203,7 @@ function Predict() {
           
           {activeResult && (
             <div className="prediction-tab">
-              <h3>Resultados para {activeResult.option}</h3>
+              <h3>Resultados para {activeResult.option} en <strong>{formatPredictionDate(activeResult.fecha_prediccion)}</strong></h3>
               <ul>
                 <PredictionDetails targetName="Clorofila" data={activeResult.Clorofila} />
                 <PredictionDetails targetName="Cianobacterias" data={activeResult.Cianobacterias} />
@@ -203,82 +218,94 @@ function Predict() {
 }
 
 
-// Componente para mostrar los datos del DataFrame
 function Datos() {
   const [tableData, setTableData] = useState([]);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [isUpdating, setIsUpdating] = useState(false); // <-- 1. NUEVO ESTADO
-  const itemsPerPage = 4;
+  const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
+  
+  const [filterSitio, setFilterSitio] = useState('');
+  const [filterAnio, setFilterAnio] = useState('');
+  const [filterEstacion, setFilterEstacion] = useState('');
+  
+  const [sitioOptions, setSitioOptions] = useState([]);
+  const [anioOptions, setAnioOptions] = useState([]);
+  const [estacionOptions, setEstacionOptions] = useState([]);
 
-  // La función para obtener los datos ahora se puede reutilizar
-  const fetchData = async () => {
-    try {
-      const response = await axios.get('http://localhost:5001/datos');
-      setTableData(response.data);
-    } catch (error) {
-      console.error('Error al obtener los datos:', error);
-      // Opcional: limpiar la tabla si hay un error al cargar
-      setTableData([]);
-    }
-  };
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 18;
+
+  const COLUMNAS_DATOS = useMemo(() => [
+    { accessor: 'id_registro', Header: 'Id Registro' },
+    { accessor: 'fecha', Header: 'Fecha' },
+    { accessor: 'codigo_perfil', Header: 'Sitio' },
+    { accessor: 'estacion', Header: 'Estación' },
+    { accessor: 'Clorofila (µg/l)', Header: 'Clorofila (µg/L)' },
+    { accessor: 'Cianobacterias Total', Header: 'Cianobacterias (cel/L)' },
+    { accessor: 'Dominancia de Cianobacterias (%)', Header: 'Dominancia Ciano (%)' },
+    { accessor: 'Nitrogeno Inorganico Total (µg/l)', Header: 'Nitrógeno Total (µg/L)' },
+    { accessor: 'T° (°C)', Header: 'Temp. Agua (°C)' },
+    { accessor: 'condicion_termica', Header: 'Condición Térmica' },
+    { accessor: 'Cota (m)', Header: 'Cota (m)' },
+    { accessor: 'PHT (µg/l)', Header: 'PHT (µg/l)' },
+    { accessor: 'PRS (µg/l)', Header: 'PRS (µg/l)' },
+    { accessor: 'temperatura_min', Header: 'Temperatura Minima' },
+    { accessor: 'temperatura_max', Header: 'Temperatura Maxima' },
+    { accessor: '600', Header: '600 Bo El Canal' },
+    { accessor: '700', Header: '700 Confluencia el Cajon' },
+    { accessor: '1100', Header: '1100 CIRSA Villa Carlos Paz' }
+    
+  ], []);
 
   useEffect(() => {
+    const fetchData = async () => {
+      setIsLoading(true);
+      try {
+        const response = await axios.get('http://localhost:5001/datos');
+        const data = Array.isArray(response.data) ? response.data : [];
+        setTableData(data);
+
+        if (data.length > 0) {
+          setSitioOptions([...new Set(data.map(item => item.codigo_perfil).filter(Boolean))].sort());
+          setAnioOptions([...new Set(data.map(item => new Date(item.fecha).getFullYear()))].sort((a, b) => b - a));
+          setEstacionOptions([...new Set(data.map(item => item.estacion).filter(Boolean))].sort());
+        }
+      } catch (error) {
+        console.error('Error al obtener los datos:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
     fetchData();
   }, []);
 
+  const filteredData = useMemo(() => {
+    return tableData.filter(row => {
+      const matchSitio = filterSitio ? row.codigo_perfil === filterSitio : true;
+      const matchAnio = filterAnio ? new Date(row.fecha).getFullYear() === parseInt(filterAnio) : true;
+      const matchEstacion = filterEstacion ? row.estacion === filterEstacion : true;
+      return matchSitio && matchAnio && matchEstacion;
+    });
+  }, [tableData, filterSitio, filterAnio, filterEstacion]);
 
-  // --- 2. NUEVA FUNCIÓN PARA LLAMAR A /actualizar ---
-  const handleUpdate = async () => {
-    setIsUpdating(true); // Deshabilitar botón
-    alert('Iniciando actualización de datos en el servidor. Este proceso puede tardar varios minutos. Por favor, espera a que aparezca el mensaje de confirmación.');
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filteredData]);
 
-    try {
-      const response = await axios.post('http://localhost:5001/actualizar');
-      // Cuando el proceso termina, muestra el mensaje de éxito
-      alert(response.data.message);
-      // Vuelve a cargar los datos en la tabla para ver los cambios
-      fetchData(); 
-    } catch (error) {
-      console.error('Error al actualizar los datos:', error);
-      const errorMessage = error.response ? error.response.data.error : 'Error de conexión.';
-      alert(`Error al actualizar: ${errorMessage}`);
-    } finally {
-      setIsUpdating(false); // Vuelve a habilitar el botón
-    }
-  };
-  // --- FIN DE LA NUEVA FUNCIÓN ---
-
-
-  const handlePageChange = (pageNumber) => {
-    setCurrentPage(pageNumber);
-  };
-
+  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const currentItems = tableData.slice(startIndex, startIndex + itemsPerPage);
-  const totalPages = Math.ceil(tableData.length / itemsPerPage);
+  const currentItems = filteredData.slice(startIndex, startIndex + itemsPerPage);
 
-  // Crear el rango de botones a mostrar
   const getPaginationButtons = () => {
     const buttons = [];
-    const maxButtons = 5; // Cantidad máxima de botones que se muestran
-
+    const maxButtons = 5;
     let startPage = Math.max(1, currentPage - Math.floor(maxButtons / 2));
     let endPage = Math.min(totalPages, startPage + maxButtons - 1);
-
     if (endPage - startPage < maxButtons - 1) {
       startPage = Math.max(1, endPage - maxButtons + 1);
     }
-
     for (let i = startPage; i <= endPage; i++) {
       buttons.push(
-        <button
-          key={i}
-          onClick={() => handlePageChange(i)}
-          className={currentPage === i ? 'active' : ''}
-        >
-          {i}
-        </button>
+        <button key={i} onClick={() => setCurrentPage(i)} className={currentPage === i ? 'active' : ''}>{i}</button>
       );
     }
     return buttons;
@@ -286,110 +313,155 @@ function Datos() {
 
   return (
     <div className="container">
-      <button onClick={() => navigate('/')} className="back-button">&larr;</button>
-      <img src={logo} alt="Logo" className="logo2" />
-      <h2>Datos del DataFrame</h2>
-
-      {/* --- 3. NUEVO BOTÓN DE ACTUALIZAR --- }
-      <div style={{ margin: '20px 0' }}>
-        <button onClick={handleUpdate} disabled={isUpdating} className="primary-button">
-          {isUpdating ? 'Procesando en Servidor...' : 'Forzar Actualización de Datos'}
-        </button>
+      <div className="page-header">
+        <button onClick={() => navigate('/')} className="back-button">&larr;</button>
+        <h2>Datos del DataFrame Procesado</h2>
       </div>
-      {/* --- FIN DEL NUEVO BOTÓN --- */}
+      
+      <div className="filters-container">
+        <select className="filter-select" value={filterSitio} onChange={(e) => setFilterSitio(e.target.value)}>
+          <option value="">Todos los Sitios</option>
+          {sitioOptions.map(sitio => <option key={sitio} value={sitio}>{sitio}</option>)}
+        </select>
+        <select className="filter-select" value={filterAnio} onChange={(e) => setFilterAnio(e.target.value)}>
+          <option value="">Todos los Años</option>
+          {anioOptions.map(anio => <option key={anio} value={anio}>{anio}</option>)}
+        </select>
+        <select className="filter-select" value={filterEstacion} onChange={(e) => setFilterEstacion(e.target.value)}>
+          <option value="">Todas las Estaciones</option>
+          {estacionOptions.map(estacion => <option key={estacion} value={estacion}>{estacion}</option>)}
+        </select>
+      </div>
 
-      {tableData.length > 0 ? (
+      {isLoading ? (<p>Cargando datos...</p>) : (
         <>
           <div className="table-container">
-            <table border="1">
+            <table>
               <thead>
                 <tr>
-                  {Object.keys(tableData[0]).map((key) => (
-                    <th key={key}>{key}</th>
+                 {COLUMNAS_DATOS.map(columna => (
+                    <th key={columna.accessor}>{columna.Header}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {currentItems.map((row, index) => (
-                  <tr key={index}>
-                    {Object.values(row).map((value, i) => (
-                      // Añadido un pequeño cambio para que los 'null' no se muestren
-                      <td key={i}>{value === null ? "" : String(value)}</td>
-                    ))}
-                  </tr>
-                ))}
+              {currentItems.map((row, index) => (
+                <tr key={index}>
+                  {COLUMNAS_DATOS.map(columna => (
+                    <td key={`${index}-${columna.accessor}`}>
+                      {columna.accessor === 'fecha'
+                        ? formatDate(row[columna.accessor])
+                        : (row[columna.accessor] === null ? "" : String(row[columna.accessor]))
+                      }
+                    </td>
+                  ))}
+                </tr>
+              ))}
               </tbody>
             </table>
           </div>
-          <div className="pagination">
-            <button onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1}>
-              &laquo; Anterior
-            </button>
+          {totalPages > 1 && <div className="pagination">
+            <button onClick={() => setCurrentPage(c => Math.max(1, c - 1))} disabled={currentPage === 1}>&laquo; Anterior</button>
             {getPaginationButtons()}
-            <button onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages}>
-              Siguiente &raquo;
-            </button>
-          </div>
+            <button onClick={() => setCurrentPage(c => Math.min(totalPages, c + 1))} disabled={currentPage === totalPages}>Siguiente &raquo;</button>
+          </div>}
         </>
-      ) : (
-        <p>Cargando datos...</p>
       )}
     </div>
   );
 }
 
 // Componente para mostrar los datos del DataFrame
+// Componente para mostrar los datos del DataFrame
 function Predicciones() {
   const [tableData, setTableData] = useState([]);
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 4;
+  const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
+  
+  const [filterSitio, setFilterSitio] = useState('');
+  const [filterTarget, setFilterTarget] = useState('');
+  const [filterAlerta, setFilterAlerta] = useState('');
+  const [filterMes, setFilterMes] = useState('');
+  
+  const [sitioOptions, setSitioOptions] = useState([]);
+  const [targetOptions, setTargetOptions] = useState([]);
+  const [alertaOptions, setAlertaOptions] = useState([]);
+  const [mesOptions, setMesOptions] = useState([]);
+  
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 18;
 
-  // La función para obtener los datos ahora se puede reutilizar
-  const fetchData = async () => {
-    try {
-      const response = await axios.get('http://localhost:5001/predicciones');
-      setTableData(response.data);
-    } catch (error) {
-      console.error('Error al obtener los datos:', error);
-      // Opcional: limpiar la tabla si hay un error al cargar
-      setTableData([]);
-    }
-  };
+  const COLUMNAS_PREDICCIONES = useMemo(() => [
+    { accessor: 'id_prediccion', Header: 'ID Prediccion' },
+    { accessor: 'timestamp_ejecucion', Header: 'Fecha de Ejecución' },
+    { accessor: 'fecha_prediccion', Header: 'Fecha de Predicción' },
+    { accessor: 'codigo_perfil', Header: 'Sitio' },
+    { accessor: 'target', Header: 'Variable' },
+    { accessor: 'clase_alerta', Header: 'Alerta (Clase)' },
+    { accessor: 'etiqueta_predicha', Header: 'Etiqueta' }
+], []);
 
   useEffect(() => {
+    const fetchData = async () => {
+      setIsLoading(true);
+      try {
+        const response = await axios.get('http://localhost:5001/predicciones');
+        const data = Array.isArray(response.data) ? response.data : [];
+        setTableData(data);
+
+        if (data.length > 0) {
+          setSitioOptions([...new Set(data.map(item => item.codigo_perfil).filter(Boolean))].sort());
+          setTargetOptions([...new Set(data.map(item => item.target).filter(Boolean))].sort());
+          setAlertaOptions([...new Set(data.map(item => item.etiqueta_predicha).filter(Boolean))].sort());
+          
+          // Para los meses, extraemos el nombre del mes para que sea más legible
+          const meses = [...new Set(data.map(item => {
+              const monthIndex = new Date(item.fecha_prediccion).getMonth();
+              return new Date(0, monthIndex).toLocaleString('es-ES', { month: 'long' });
+          }))];
+          setMesOptions(meses);
+        }
+      } catch (error) {
+        console.error('Error al obtener los datos:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
     fetchData();
   }, []);
 
-  const handlePageChange = (pageNumber) => {
-    setCurrentPage(pageNumber);
-  };
+  const filteredData = useMemo(() => {
+    return tableData.filter(row => {
+      const matchSitio = filterSitio ? row.codigo_perfil === filterSitio : true;
+      const matchTarget = filterTarget ? row.target === filterTarget : true;
+      const matchAlerta = filterAlerta ? row.etiqueta_alerta === filterAlerta : true;
+      
+      const monthName = new Date(row.fecha_prediccion).toLocaleString('es-ES', { month: 'long' });
+      const matchMes = filterMes ? monthName.toLowerCase() === filterMes.toLowerCase() : true;
 
+      return matchSitio && matchTarget && matchAlerta && matchMes;
+    });
+  }, [tableData, filterSitio, filterTarget, filterAlerta, filterMes]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filteredData]);
+
+  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const currentItems = tableData.slice(startIndex, startIndex + itemsPerPage);
-  const totalPages = Math.ceil(tableData.length / itemsPerPage);
+  const currentItems = filteredData.slice(startIndex, startIndex + itemsPerPage);
 
-  // Crear el rango de botones a mostrar
   const getPaginationButtons = () => {
     const buttons = [];
-    const maxButtons = 10; // Cantidad máxima de botones que se muestran
-
+    const maxButtons = 5;
     let startPage = Math.max(1, currentPage - Math.floor(maxButtons / 2));
     let endPage = Math.min(totalPages, startPage + maxButtons - 1);
-
     if (endPage - startPage < maxButtons - 1) {
       startPage = Math.max(1, endPage - maxButtons + 1);
     }
-
     for (let i = startPage; i <= endPage; i++) {
       buttons.push(
-        <button
-          key={i}
-          onClick={() => handlePageChange(i)}
-          className={currentPage === i ? 'active' : ''}
-        >
-          {i}
-        </button>
+        <button key={i} onClick={() => setCurrentPage(i)} className={currentPage === i ? 'active' : ''}>{i}</button>
       );
     }
     return buttons;
@@ -397,48 +469,83 @@ function Predicciones() {
 
   return (
     <div className="container">
-      <button onClick={() => navigate('/')} className="back-button">&larr;</button>
-      <img src={logo} alt="Logo" className="logo2" />
-      <h2>Datos del DataFrame</h2>
+      <div className="page-header">
+        <button onClick={() => navigate('/')} className="back-button">&larr;</button>
+        <h2>Historial de predicciones</h2>
+      </div>
+      
+      <div className="filters-container">
+          <select className="filter-select" value={filterSitio} onChange={(e) => setFilterSitio(e.target.value)}>
+              <option value="">Todos los Sitios</option>
+              {sitioOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+          </select>
+          <select className="filter-select" value={filterTarget} onChange={(e) => setFilterTarget(e.target.value)}>
+              <option value="">Todos los Targets</option>
+              {targetOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+          </select>
+          <select className="filter-select" value={filterAlerta} onChange={(e) => setFilterAlerta(e.target.value)}>
+              <option value="">Todas las Alertas</option>
+              {alertaOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+          </select>
+          <select className="filter-select" value={filterMes} onChange={(e) => setFilterMes(e.target.value)}>
+              <option value="">Todos los Meses</option>
+              {mesOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+          </select>
+      </div>
 
-      {tableData.length > 0 ? (
+      {isLoading ? (<p>Cargando datos...</p>) : (
         <>
           <div className="table-container">
-            <table border="1">
+            <table>
               <thead>
-                <tr>
-                  {Object.keys(tableData[0]).map((key) => (
-                    <th key={key}>{key}</th>
-                  ))}
-                </tr>
+                 <tr>
+                    {COLUMNAS_PREDICCIONES.map(col => <th key={col.accessor}>{col.Header}</th>)}
+                  </tr>
               </thead>
               <tbody>
                 {currentItems.map((row, index) => (
                   <tr key={index}>
-                    {Object.values(row).map((value, i) => (
-                      // Añadido un pequeño cambio para que los 'null' no se muestren
-                      <td key={i}>{value === null ? "" : String(value)}</td>
-                    ))}
+                      {COLUMNAS_PREDICCIONES.map(col => (
+                          <td key={`${index}-${col.accessor}`}>
+                            {(col.accessor === 'timestamp_ejecucion' || col.accessor === 'fecha_prediccion')
+                              ? formatDate(row[col.accessor])
+                              : (row[col.accessor] === null ? "" : String(row[col.accessor]))
+                            }
+                          </td>
+                      ))}
                   </tr>
-                ))}
+                  ))}
               </tbody>
             </table>
           </div>
-          <div className="pagination">
-            <button onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1}>
-              &laquo; Anterior
-            </button>
+          {totalPages > 1 && <div className="pagination">
+            <button onClick={() => setCurrentPage(c => Math.max(1, c - 1))} disabled={currentPage === 1}>&laquo; Anterior</button>
             {getPaginationButtons()}
-            <button onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages}>
-              Siguiente &raquo;
-            </button>
-          </div>
+            <button onClick={() => setCurrentPage(c => Math.min(totalPages, c + 1))} disabled={currentPage === totalPages}>Siguiente &raquo;</button>
+          </div>}
         </>
-      ) : (
-        <p>Cargando datos...</p>
       )}
     </div>
   );
+}
+
+function formatDate(dateString) {
+  // Si la fecha es nula o inválida, devuelve un guion.
+  if (!dateString) {
+    return '-';
+  }
+  try {
+    const date = new Date(dateString);
+    // Obtenemos día, mes y año. padStart asegura que tengan dos dígitos (ej. 05 en vez de 5).
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0'); // Los meses son 0-11, por eso +1
+    const year = date.getFullYear();
+    // Verificamos si la fecha es válida antes de devolverla
+    if (isNaN(day) || isNaN(month) || isNaN(year)) return "Fecha inválida";
+    return `${day}/${month}/${year}`;
+  } catch (error) {
+    return "Fecha inválida";
+  }
 }
 
 // Componente de la aplicación principal

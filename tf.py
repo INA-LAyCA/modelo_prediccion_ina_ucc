@@ -1,31 +1,23 @@
 import pandas as pd
 import numpy as np
+import select
+import os
+import joblib
+import subprocess
+import threading
+import time
+import psycopg2
+import logging
+import tensorflow as tf
 from sqlalchemy import create_engine
 from sqlalchemy import text
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestRegressor
-from sklearn.metrics import mean_squared_error, mean_absolute_error
-from sklearn.preprocessing import LabelEncoder
-from sklearn.experimental import enable_iterative_imputer
-from sklearn.impute import IterativeImputer
-from sklearn.impute import KNNImputer
-from xgboost import XGBRegressor
-import random
+from sklearn.metrics import mean_absolute_error
 from sklearn.model_selection import cross_val_score
-import threading
-import time
-import psycopg2
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
-import select
-import os
-import io
-import joblib
-import subprocess
-import tensorflow as tf
 from entrenar_modelos import preprocess_and_feature_engineer
-
 
 # Configuración de Flask
 app = Flask(__name__)
@@ -49,18 +41,7 @@ engine = create_engine(f'postgresql+psycopg2://{usuario}:{contraseña}@{host}:{p
 engine2 = create_engine(f'postgresql+psycopg2://{usuario}:{contraseña}@{host2}:{puerto2}/{nombre_base_datos2}')
 engine3 = create_engine(f'postgresql+psycopg2://{usuario}:{contraseña}@{host2}:{puerto2}/{nombre_base_modelo}')
 
-
-# Ruta para obtener las opciones del campo desplegable
-@app.route('/get-options', methods=['GET'])
-def get_options():
-    try:
-        # Consulta a la base de datos para obtener los valores de 'codigo_perfil'
-        query = "SELECT DISTINCT codigo_perfil FROM vistaconjunto"
-        df = pd.read_sql(query, engine)
-        options = df['codigo_perfil'].dropna().tolist()
-        return jsonify(options)
-    except Exception as e:
-        return jsonify({'error': str(e)})
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Función para obtener y procesar el DataFrame
 def obtener_dataframe():
@@ -141,13 +122,10 @@ def obtener_dataframe():
     df_final=imputacion_temperatura_aire(df_final)
 
     # --- Ejecución principal ---
-    df_final, resultados_clorofila = imputacion_clorofila(df_final)
-    df_final, resultados_pht = imputar_pht(df_final)
-    df_final, resultados_prs = imputar_prs(df_final)
-    df_final, imputaciones_n, resultados_n = imputar_nitrogeno(df_final)
-
-    # Eliminar columnas auxiliares si ya no se necesitan
-    #df_final.drop(columns=['estacion', 'mes'], inplace=True)
+    df_final= imputacion_clorofila(df_final)
+    df_final= imputar_pht(df_final)
+    df_final= imputar_prs(df_final)
+    df_final= imputar_nitrogeno(df_final)
 
     # Cálculo de Nitrogeno Inorganico Total
     # Esta suma usa 'N-NH4 (µg/l)', 'N-NO2 (µg/l)' y 'N-NO3 (mg/l)'
@@ -188,36 +166,37 @@ def obtener_dataframe():
 
 # --- Funciones Auxiliares de Procesamiento ---
 
+#Función union de datos de precipitación al dataframe final
 def union_precipitacion (df_final, engine2):
     query4 = "SELECT * FROM vista_precipitacion_acumulada_3d;"
     df_precipitacion = pd.read_sql(query4, engine2)
     print("Llego hasta conectarme a la base")
 
-    # 🚀 3. Definir los sensores de interés
+    # sensores de interés
     sensores_interes = {
         600: '600_Bo_El_Canal', # <-- Normalizado
         700: '700_Confluencia_El_Cajon', # <-- NORMALIZADO (sin acento)
         1100: '1100_CIRSA_Villa_Carlos_Paz', # <-- Normalizado
     }
 
-    # 🚀 5. Reemplazar id_sensor por el nombre descriptivo
+    # Reemplazar id_sensor por el nombre descriptivo
     df_precipitacion['sensor_nombre'] = df_precipitacion['sensor_id'].map(sensores_interes)
     print("Llego hasta leer los sensores")
-    # 🚀 6. Pivotear: fecha como índice, cada sensor como una columna
+    # Pivotear: fecha como índice, cada sensor como una columna
     df_precipitacion_pivot = df_precipitacion.pivot(
         index='fecha_dia',
         columns='sensor_id',
         values='precipitacion_acumulada_3d'
     ).reset_index()
     print("Llego hasta pivotear sensores como columnas")
-    # 🚀 7. Asegurarse que la fecha del df_final también sea tipo date
+    # Asegurarse que la fecha del df_final también sea tipo date
     df_final['fecha'] = pd.to_datetime(df_final['fecha']).dt.date
     df_precipitacion_pivot['fecha_dia'] = pd.to_datetime(df_precipitacion_pivot['fecha_dia']).dt.date
 
-    # 🚀 8. Hacer el merge por fecha
+    # merge por fecha
     df_final = df_final.merge(df_precipitacion_pivot, how='left', left_on='fecha', right_on='fecha_dia')
     print("Llego hasta merge")
-    # 🚀 9. Opcional: eliminar la columna fecha_dia si no querés duplicado
+    # eliminar la columna fecha_dia para evitar duplicado
     df_final.drop(columns=['fecha_dia'], inplace=True)
 
     return df_final
@@ -429,14 +408,14 @@ def union_temperatura_aire (df_final, engine2):
     query5 = "SELECT * FROM vista_temperatura;"
     df_temp = pd.read_sql(query5, engine2)
 
-    # 🔸 Verificar y convertir a datetime si es necesario
+    # Verificar y convertir a datetime si es necesario
     df_final['fecha'] = pd.to_datetime(df_final['fecha'], errors='coerce')
     df_temp['fecha_dia'] = pd.to_datetime(df_temp['fecha_dia'], errors='coerce')
 
-    # 🔹 Merge entre df_final y temperatura diaria
+    # Merge entre df_final y temperatura diaria
     df_final = df_final.merge(df_temp, left_on='fecha', right_on='fecha_dia', how='left')
 
-    # 🔸 Eliminar columna redundante
+    #Eliminar columna redundante
     df_final.drop(columns='fecha_dia', inplace=True)
     print("Ejemplo union temperatura: ", df_final.head())
 
@@ -486,8 +465,7 @@ def seleccionar_medicion_mensual(df_final):
         'id_registro', 'condicion_termica', 'fecha', 'codigo_perfil', 
         'descripcion_estratificacion', 'z', 'year_month', 'num_sitios_dia_mes' # Incluir la recién creada
     ] 
-    # También podrías tener una lista explícita de tus columnas de parámetros
-    # o seleccionar solo columnas numéricas que no estén en la lista de identificadoras.
+ 
     columnas_de_medicion = [col for col in df.columns if col not in cols_identificadoras_y_aux and pd.api.types.is_numeric_dtype(df[col])]
     
     if columnas_de_medicion:
@@ -512,11 +490,10 @@ def seleccionar_medicion_mensual(df_final):
         app.logger.warning("No se pudo realizar la selección de medición mensual representativa por falta de columnas de ordenamiento.")
         df_seleccionado = df 
 
-    # 4. Opcional: Eliminar columnas auxiliares creadas dentro de esta función
+    # 4 Eliminar columnas auxiliares creadas dentro de esta función
     cols_aux_a_eliminar = ['year_month', 'num_sitios_dia_mes', 'porcentaje_faltantes_dia']
     df_seleccionado = df_seleccionado.drop(columns=[col for col in cols_aux_a_eliminar if col in df_seleccionado.columns], errors='ignore')
-    #O puedes dejarlas y que se eliminen en un paso de limpieza general en obtener_dataframe()
-
+    
     return df_seleccionado
 
 def condicion_termica(df_principal, db_engine_param):
@@ -525,8 +502,6 @@ def condicion_termica(df_principal, db_engine_param):
     siguiendo la lógica del script original del usuario.
     """
     df_a_modificar = df_principal.copy() # Trabajar sobre una copia del DataFrame principal
-
-    # --- Inicio del bloque de código original adaptado ---
 
     # Consulta para obtener los datos de condicion_termica
     query3 = "SELECT * from vista_condicion_termica"
@@ -557,8 +532,7 @@ def condicion_termica(df_principal, db_engine_param):
 
     # Funciones auxiliares (se vuelven anidadas dentro de esta función principal)
     def asignar_grupo(perfil):
-        # 'grupos_perfiles' es accesible porque está definida en el ámbito de
-        # procesar_condicion_termica_script_original
+    
         for grupo, perfiles in grupos_perfiles.items():
             if perfil in perfiles:
                 return grupo
@@ -614,12 +588,11 @@ def condicion_termica(df_principal, db_engine_param):
         temp_dif = grupo_df_calc['valor'].diff().abs().round(1)
         prof_dif = grupo_df_calc['z'].diff().abs()
 
-        # --- CORRECCIÓN DE INDENTACIÓN AQUÍ ---
+
         for i in range(1, len(grupo_df_calc)):
             t = temp_dif.iloc[i]
             z = prof_dif.iloc[i]
 
-            # ESTE BLOQUE 'IF' DEBE ESTAR INDENTADO DENTRO DEL 'FOR'
             if pd.notna(t) and pd.notna(z):
                 if z <= 1 and t >= 1.0:
                     grupo_df_calc['condicion_termica'] = 'ESTRATIFICADA'
@@ -630,7 +603,6 @@ def condicion_termica(df_principal, db_engine_param):
                 elif z > 1 and t > 1.0:
                     grupo_df_calc['condicion_termica'] = 'INDETERMINACION'
                     return grupo_df_calc
-        # --- FIN DE LA CORRECCIÓN ---
 
         # Si no se cumplió ninguna condición en el bucle, se considera mezcla
         grupo_df_calc['condicion_termica'] = 'MEZCLA'
@@ -653,57 +625,66 @@ def condicion_termica(df_principal, db_engine_param):
 
     return df_a_modificar
 
-# --- 3. LÓGICA DE ACTUALIZACIÓN Y ESCUCHA (WORKER Y LISTENER) ---
-def actualizar_df():
-    """
-    Función "trabajadora". Llama al pipeline pesado y guarda el resultado.
-    Se ejecuta en un hilo para no bloquear al listener o a la app.
-    """
-    # with app.app_context() es una buena práctica para que el hilo
-    # tenga acceso al contexto de la aplicación si fuera necesario.
-    with app.app_context():
-        print("WORKER: Iniciando `generar_dataframe_procesado()`...")
-        try:
-            df_procesado = obtener_dataframe()
+# CARGA Y RECARGA DE MODELOS
 
-            if df_procesado is not None and not df_procesado.empty:
-                nombre_tabla_destino = 'dataframe'
-                print(f"WORKER: Guardando DataFrame en la tabla '{nombre_tabla_destino}'...")
-                df_procesado.to_sql(nombre_tabla_destino, engine3, if_exists='replace', index=False)
-                print("WORKER: ¡Guardado en la base de datos exitoso!")
-                print("WORKER: Reentrenando modelos")
-                reentrenar_modelos()
-                print("WORKER: Recargando en memoria los modelos entrenados…")
-                recargar_modelos()
-                print("WORKER: Modelos recargados exitosamente.")
-            else:
-                print("WORKER: El procesamiento no generó un DataFrame. No se guardó nada.")
-       
-            print("WORKER: Recargando modelos en memoria…")
-            recargar_modelos()
-            print("WORKER: Modelos recargados correctamente.")
-        except Exception as e:
-            print(f"WORKER: ERROR en el proceso de actualización en segundo plano: {e}")
+# =======================================================================
+# --- CARGA DE MODELOS Y ARTEFACTOS AL INICIO DE LA APP ---
+# =======================================================================
+print("Cargando modelos y artefactos entrenados...")
+SITIOS_A_ANALIZAR   = ['C1','TAC1','TAC4','DSA1','DCQ1']
+TARGETS_A_PREDECIR  = ['Clorofila','Cianobacterias','Dominancia']
+CLASS_LABELS_MAP_ALERTA = {
+    0: "Vigilancia",
+    1: "Alerta",
+    2: "Emergencia"
+}
+CLASS_LABELS_MAP_ALERTA_DOMINANCIA = {
+    0: "No Dominante",
+    1: "Dominante",
+}
 
-def reentrenar_modelos():
+def recargar_modelos():
     """
-    Lanza el script entrenar_modelos.py como un subproceso y muestra su salida.
+    Vuelve a leer de disco todos los artefactos y actualiza la variable global modelos_cargados.
     """
-    ruta_script = os.path.join(os.path.dirname(__file__), 'entrenar_modelos.py')
-    try:
-        resultado = subprocess.run(
-            ['python3', ruta_script],
-            capture_output=True,
-            text=True,
-            check=True
-        )
-        print("WORKER: Salida de entrenar_modelos.py:")
-        print(resultado.stdout)
-    except subprocess.CalledProcessError as e:
-        print("WORKER ERROR: El retraining falló:")
-        print(e.stderr)
-        # opcional: re-lanzar o marcar error según tu lógica
+    print("🔄 Recargando modelos y artefactos entrenados…")
+    temp = { target: {} for target in TARGETS_A_PREDECIR }
 
+    for target in TARGETS_A_PREDECIR:
+        for sitio in SITIOS_A_ANALIZAR:
+            pkl_path   = f"modelos_entrenados/artefactos_{sitio}_{target}.pkl"
+            keras_path = f"modelos_entrenados/modelo_{sitio}_{target}.keras"
+
+            if not os.path.exists(pkl_path):
+                print(f"  ⚠️ No encontrado: {pkl_path}")
+                continue
+
+            try:
+                artefactos = joblib.load(pkl_path)
+                # Si hay un modelo Keras separado, lo cargamos también
+                if os.path.exists(keras_path):
+                    artefactos['modelo'] = tf.keras.models.load_model(keras_path)
+                temp[target][sitio] = artefactos
+                print(f"  • {sitio}-{target} cargado")
+            except Exception as e:
+                print(f"  ❌ Error cargando {sitio}-{target}: {e}")
+
+    # Una vez construido todo el dict sin errores, actualizamos la variable global
+    with modelos_lock:
+        global modelos_cargados
+        modelos_cargados = temp
+
+    print("✅ Recarga de modelos completada.\n")
+
+# LÓGICA DE ACTUALIZACIÓN
+
+proceso_lock = threading.Lock()
+proceso_status = {
+    "running": False,        # Indica si ya hay un proceso en ejecución
+    "message": "Inactivo"    # Mensaje de estado, útil para exponer vía /get-status
+}
+modelos_lock = threading.Lock()
+modelos_cargados = {}
 
 DELAY_SEGUNDOS = 10
 _debounce_timer = None
@@ -762,53 +743,67 @@ def database_listener():
             print(f"LISTENER: Ocurrió un error inesperado: {e}. Intentando reiniciar en 30 segundos...")
             time.sleep(30)
 
-
-modelos_lock = threading.Lock()
-modelos_cargados = {}
-# =======================================================================
-# --- CARGA DE MODELOS Y ARTEFACTOS AL INICIO DE LA APP ---
-# =======================================================================
-print("Cargando modelos y artefactos entrenados...")
-SITIOS_A_ANALIZAR   = ['C1','TAC1','TAC4','DSA1','DCQ1']
-TARGETS_A_PREDECIR  = ['Clorofila','Cianobacterias','Dominancia']
-CLASS_LABELS_MAP_ALERTA = {
-    0: "Vigilancia/Bajo",
-    1: "Alerta 1/Medio",
-    2: "Alerta 2/Alto"
-}
-
-def recargar_modelos():
+def actualizar_df():
     """
-    Vuelve a leer de disco todos los artefactos y actualiza la variable global modelos_cargados.
+    Función "trabajadora". Llama al pipeline pesado y guarda el resultado.
+    Se ejecuta en un hilo para no bloquear al listener o a la app.
     """
-    print("🔄 Recargando modelos y artefactos entrenados…")
-    temp = { target: {} for target in TARGETS_A_PREDECIR }
+    # with app.app_context() es una buena práctica para que el hilo
+    # tenga acceso al contexto de la aplicación si fuera necesario.
+    with app.app_context():
+        print("WORKER: Iniciando `generar_dataframe_procesado()`...")
+        with proceso_lock:
+            if proceso_status["running"]:
+                print("WORKER: Ya hay un proceso en curso, saliendo.")
+                return
+            proceso_status["running"] = True
 
-    for target in TARGETS_A_PREDECIR:
-        for sitio in SITIOS_A_ANALIZAR:
-            pkl_path   = f"modelos_entrenados/artefactos_{sitio}_{target}.pkl"
-            keras_path = f"modelos_entrenados/modelo_{sitio}_{target}.keras"
+        try:
+            df_procesado = obtener_dataframe()
 
-            if not os.path.exists(pkl_path):
-                print(f"  ⚠️ No encontrado: {pkl_path}")
-                continue
+            if df_procesado is not None and not df_procesado.empty:
+                nombre_tabla_destino = 'dataframe'
+                print(f"WORKER: Guardando DataFrame en la tabla '{nombre_tabla_destino}'...")
+                df_procesado.to_sql(nombre_tabla_destino, engine3, if_exists='replace', index=False)
+                print("WORKER: ¡Guardado en la base de datos exitoso!")
+                print("WORKER: Reentrenando modelos")
+                reentrenar_modelos()
+                print("WORKER: Recargando en memoria los modelos entrenados…")
+                recargar_modelos()
+                print("WORKER: Modelos recargados exitosamente.")
+            else:
+                print("WORKER: El procesamiento no generó un DataFrame. No se guardó nada.")
+       
+            print("WORKER: Recargando modelos en memoria…")
+            recargar_modelos()
+            print("WORKER: Modelos recargados correctamente.")
+        except Exception as e:
+            print(f"WORKER: ERROR en el proceso de actualización en segundo plano: {e}")
+        finally:
+            with proceso_lock:
+                proceso_status["running"] = False
+                proceso_status["message"] = "Inactivo"
 
-            try:
-                artefactos = joblib.load(pkl_path)
-                # Si hay un modelo Keras separado, lo cargamos también
-                if os.path.exists(keras_path):
-                    artefactos['modelo'] = tf.keras.models.load_model(keras_path)
-                temp[target][sitio] = artefactos
-                print(f"  • {sitio}-{target} cargado")
-            except Exception as e:
-                print(f"  ❌ Error cargando {sitio}-{target}: {e}")
+def reentrenar_modelos():
+    """
+    Lanza el script entrenar_modelos.py como un subproceso y muestra su salida.
+    """
+    ruta_script = os.path.join(os.path.dirname(__file__), 'entrenar_modelos.py')
+    try:
+        resultado = subprocess.run(
+            ['python3', ruta_script],
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        print("WORKER: Salida de entrenar_modelos.py:")
+        print(resultado.stdout)
+    except subprocess.CalledProcessError as e:
+        print("WORKER ERROR: El retraining falló:")
+        print(e.stderr)
+        # opcional: re-lanzar o marcar error según tu lógica
 
-    # Una vez construido todo el dict sin errores, actualizamos la variable global
-    with modelos_lock:
-        global modelos_cargados
-        modelos_cargados = temp
-
-    print("✅ Recarga de modelos completada.\n")
+# PREDICCION
 
 def hacer_prediccion_para_sitio(sitio: str) -> dict:
     """
@@ -829,12 +824,26 @@ def hacer_prediccion_para_sitio(sitio: str) -> dict:
     # 2) Preprocesar TODO el histórico
     df_proc = preprocess_and_feature_engineer(df_raw)
 
+    if df_proc.empty:
+        logging.warning(f"Se omitió la predicción para {sitio} porque el preprocesamiento resultó en un DataFrame vacío.")
+        resultado['error'] = "Los datos disponibles no son válidos para la predicción."
+        return resultado
+    # 
+
     # 3) Tomar la fila más reciente
     ultimo = df_proc.iloc[[-1]]
 
+    try:
+        ultima_fecha_conocida = pd.to_datetime(ultimo['fecha'].iloc[0])
+        fecha_prediccion = ultima_fecha_conocida + pd.offsets.DateOffset(months=1)
+    except (IndexError, TypeError):
+        fecha_prediccion = pd.Timestamp.now().date()
+    resultado['fecha_prediccion'] = fecha_prediccion.isoformat()
+
     # 4) Para cada target, filtrar, escalar y predecir
     for target in TARGETS_A_PREDECIR:
-        artef = modelos_cargados.get(target, {}).get(sitio)
+        with modelos_lock:
+            artef = modelos_cargados.get(target, {}).get(sitio)
         if not artef:
             resultado[target] = "Modelo no disponible"
             continue
@@ -843,8 +852,6 @@ def hacer_prediccion_para_sitio(sitio: str) -> dict:
         scaler = artef['scaler']
         best_features = artef['best_features']
         modelo = artef['modelo']
-        # --- ¡AQUÍ EL CAMBIO CLAVE! ---
-        # Extraer la información del modelo, con valores por defecto por si no existe
         model_info = artef.get('model_info', {})
 
         # 5) Construir y escalar vector de predicción
@@ -858,7 +865,25 @@ def hacer_prediccion_para_sitio(sitio: str) -> dict:
         else:
             cls = int(modelo.predict(X_scaled)[0])
 
-        etiqueta_predicha = CLASS_LABELS_MAP_ALERTA.get(cls, "Desconocido")
+        if target == 'Dominancia':
+           etiqueta_predicha = CLASS_LABELS_MAP_ALERTA_DOMINANCIA.get(cls, "Desconocido")
+        else:
+            etiqueta_predicha = CLASS_LABELS_MAP_ALERTA.get(cls, "Desconocido")
+
+        
+        try:
+            guardar_prediccion_historica(
+                codigo_perfil=sitio,
+                fecha_prediccion=fecha_prediccion,
+                target=target,
+                clase_alerta=cls,
+                etiqueta_predicha=etiqueta_predicha
+            )
+            logging.info(f"Predicción para {sitio}/{target} guardada en la base de datos.")
+        except Exception as e:
+            # Si falla el guardado, solo lo informamos y continuamos. No debe detener la app.
+            logging.error(f"FALLO AL GUARDAR PREDICCIÓN para {sitio}/{target}: {e}")
+        
 
         # 7) Construir el diccionario de respuesta enriquecido
         resultado[target] = {
@@ -872,17 +897,20 @@ def hacer_prediccion_para_sitio(sitio: str) -> dict:
 
     return resultado
 
-def guardar_prediccion_historica(codigo_perfil, fecha_prediccion, target, clase_alerta):
+# GUARDAR PREDICCIONES
+
+def guardar_prediccion_historica(codigo_perfil, fecha_prediccion, target, clase_alerta, etiqueta_predicha):
     """
     Inserta o actualiza (upsert) una fila en predicciones_historicas.
     """
     sql = text("""
     INSERT INTO predicciones_historicas
-      (codigo_perfil, fecha_prediccion, target, clase_alerta)
-    VALUES (:codigo_perfil, :fecha_prediccion, :target, :clase_alerta)
+      (codigo_perfil, fecha_prediccion, target, clase_alerta, etiqueta_predicha)
+    VALUES (:codigo_perfil, :fecha_prediccion, :target, :clase_alerta, :etiqueta_predicha)
     ON CONFLICT (codigo_perfil, fecha_prediccion, target)
     DO UPDATE SET
       clase_alerta        = EXCLUDED.clase_alerta,
+      etiqueta_predicha        = EXCLUDED.etiqueta_predicha,
       timestamp_ejecucion = now();
     """)
     params = {
@@ -890,10 +918,26 @@ def guardar_prediccion_historica(codigo_perfil, fecha_prediccion, target, clase_
         'fecha_prediccion': fecha_prediccion,                      # datetime.date está bien
         'target':           str(target),
         'clase_alerta':     int(clase_alerta),                     # <- aquí el cast
+        'etiqueta_predicha': str(etiqueta_predicha)
     }
     with engine3.begin() as conn:
         conn.execute(sql, params)
 
+
+# ENDPOINTS:
+
+# Consulta a la base de datos para obtener los valores de 'codigo_perfil' para el menu desplegable     
+@app.route('/get-options', methods=['GET'])
+def get_options():
+    try:
+        query = "SELECT DISTINCT codigo_perfil FROM vistaconjunto"
+        df = pd.read_sql(query, engine)
+        options = df['codigo_perfil'].dropna().tolist()
+        return jsonify(options)
+    except Exception as e:
+        return jsonify({'error': str(e)})
+
+#consulta dataframe de model_data
 @app.route('/datos', methods=['GET'])
 def ver_datos():
     nombre_tabla = 'dataframe'
@@ -914,6 +958,7 @@ def ver_datos():
         # Devolver una respuesta de error JSON válida
         return jsonify({'error': 'No se pudieron obtener los datos del servidor.'}), 500
 
+#consulta tabla de predicciones_historicas de model_data
 @app.route('/predicciones', methods=['GET'])
 def ver_predicciones():
     nombre_tabla = 'predicciones_historicas'
@@ -934,6 +979,7 @@ def ver_predicciones():
         # Devolver una respuesta de error JSON válida
         return jsonify({'error': 'No se pudieron obtener los datos del servidor.'}), 500
 
+#opcion de actualización forzada, no implementada en front
 @app.route('/actualizar', methods=['POST'])
 def ejecutar_actualizacion():
     print("Solicitud a /actualizar recibida. Iniciando hilo de procesamiento manual...")
@@ -943,7 +989,7 @@ def ejecutar_actualizacion():
     # Devuelve una respuesta INMEDIATA al frontend
     return jsonify({'message': 'Proceso de actualización manual iniciado en segundo plano.'}), 202
 
-# Ruta para la predicción
+#predicción
 @app.route('/predict', methods=['POST'])
 def predict():
     data = request.get_json() or {}
@@ -956,10 +1002,11 @@ def predict():
         out.append(hacer_prediccion_para_sitio(s))
     return jsonify(out)
 
-# --- INICIO DE LA APLICACIÓN Y DEL LISTENER ---
+#  INICIO DE LA APLICACIÓN 
 print("Iniciando el listener de la base de datos en un hilo de fondo...")
 listener_thread = threading.Thread(target=database_listener, daemon=True)
 listener_thread.start()
 
 if __name__ == '__main__':
+    recargar_modelos()
     app.run(host='0.0.0.0', port=5001, debug=True, use_reloader=False)
