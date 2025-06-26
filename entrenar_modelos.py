@@ -443,7 +443,7 @@ def main():
                 print(f"INFO: Omitiendo. No hay datos para el sitio {sitio}.")
                 continue
             
-            X, y, _ = prepare_final_dataset(df_site, cfg) # No necesitamos X_pred aquí
+            X, y, _ = prepare_final_dataset(df_site, cfg) # No necesitamos X_pred
             if X.empty or y.nunique() < 2:
                 print(f"INFO: Omitiendo. Datos insuficientes para entrenar (N de clases < 2 o data vacía).")
                 continue
@@ -468,7 +468,7 @@ def main():
             all_results.append(cur)
             
             # 6. Re-entrenamiento del mejor modelo
-            #best_row = cur.loc[cur['f1_macro_cv'].idxmax()]
+           
             best_row = seleccionar_mejor_modelo(cur, sitio, target_key)
             model_name, params = best_row['modelo'], best_row['best_params']
             

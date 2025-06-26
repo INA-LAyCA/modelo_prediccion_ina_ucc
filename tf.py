@@ -101,9 +101,6 @@ def obtener_dataframe():
     #Union temperatura del aire
     df_final=union_temperatura_aire (df_final, engine2)
     
-    # Creación centralizada de 'mes' y 'estacion' ---
-    # Asegurar que 'fecha' sigue siendo datetime después de las funciones anteriores
-    # (Si alguna función la convierte a date, hay que tener cuidado o revertir/re-asegurar datetime aquí)
     df_final['fecha'] = pd.to_datetime(df_final['fecha'], errors='coerce') # Re-asegurar por si acaso
 
     if 'mes' not in df_final.columns: # Crear 'mes' si no lo hizo union_temperatura_aire

@@ -602,7 +602,3 @@ function AppRoot() {
 }
 
 export default AppRoot;
-
-// Notas:
-// 1. Asegúrate de que el backend esté corriendo en http://localhost:5001 o cambia la URL según corresponda.
-// 2. Este código asume que el backend tiene un endpoint POST en '/predict' que maneja la lógica de predicción.

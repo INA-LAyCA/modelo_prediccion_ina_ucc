@@ -48,10 +48,10 @@ body {
 
 /* Contenedor para el <select> y el <button> */
 .predict-controls {
-  display: flex;           /* Pone los elementos en una fila */
-  justify-content: center; /* Centra el conjunto de controles horizontalmente */
-  align-items: center;     /* <<-- Alinea verticalmente el select y el botón */
-  gap: 15px;               /* <<-- 2. Añade un espacio de 15px entre ellos */
+  display: flex;           
+  justify-content: center; 
+  align-items: center;     
+  gap: 15px;               
   width: 100%;
   margin-top: 0;
 }
@@ -64,8 +64,8 @@ body {
   text-align: center;
   border-radius: 8px;
   border: 1px solid #ccc;
-  box-sizing: border-box; /* Asegura que el padding no afecte la altura total */
-  height: 45px; /* Altura fija para alinear con el botón */
+  box-sizing: border-box;
+  height: 45px; 
 }
 
 .prediction-header {
@@ -269,13 +269,13 @@ td {
 /* --- Contenedor de Filtros (Centrado) --- */
 .filters-container {
   display: flex;
-  justify-content: center; /* <<-- ¡CAMBIO CLAVE! Centra los filtros horizontalmente */
+  justify-content: center;
   gap: 10px;
   width: 100%;
   margin-bottom: 10px; /* Espacio antes de la tabla */
 }
 
-/* Estilo para los menús desplegables (sin cambios, pero se incluye por completitud) */
+/* Estilo para los menús desplegables*/
 .filter-select {
   padding: 8px;
   font-size: 12px;
@@ -298,7 +298,7 @@ td {
 
 .prediction-main {
   display: flex;
-  justify-content: space-between; /* <-- Pone los elementos en extremos opuestos */
+  justify-content: space-between; 
   align-items: center;
   font-size: 1.2em;
   margin-bottom: 10px;
@@ -308,7 +308,7 @@ td {
   color: #333;
 }
 
-/* Estilo para la etiqueta de predicción (la píldora de color) */
+/* Estilo para la etiqueta de predicción  */
 .prediction-label {
   font-weight: bold;
   padding: 6px 12px;
@@ -327,7 +327,7 @@ td {
   background-color: #cf4132; /* Rojo */
 }
 .prediction-vigilancia, .prediction-no-dominante{ /* Vigilancia */
-  background-color: #5ab151; /* Azul */
+  background-color: #5ab151; /* Verde */
 }
 
 
