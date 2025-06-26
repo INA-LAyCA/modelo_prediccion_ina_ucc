@@ -326,9 +326,11 @@ td {
 .prediction-emergencia, .prediction-alerta-2, .prediction-dominante { /* Alerta 2 */
   background-color: #cf4132; /* Rojo */
 }
-.prediction-vigilancia, .prediction-bajo, .prediccion-no-dominante { /* Vigilancia */
+.prediction-vigilancia, .prediction-no-dominante{ /* Vigilancia */
   background-color: #5ab151; /* Azul */
 }
+
+
 .prediction-nodata {
   background-color: #bdc3c7; /* Gris */
 }

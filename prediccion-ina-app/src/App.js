@@ -225,10 +225,12 @@ function Datos() {
   
   const [filterSitio, setFilterSitio] = useState('');
   const [filterAnio, setFilterAnio] = useState('');
+  const [filterMes, setFilterMes] = useState('');
   const [filterEstacion, setFilterEstacion] = useState('');
   
   const [sitioOptions, setSitioOptions] = useState([]);
   const [anioOptions, setAnioOptions] = useState([]);
+  const [mesOptions, setMesOptions] = useState([]);
   const [estacionOptions, setEstacionOptions] = useState([]);
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -266,6 +268,7 @@ function Datos() {
 
         if (data.length > 0) {
           setSitioOptions([...new Set(data.map(item => item.codigo_perfil).filter(Boolean))].sort());
+          setMesOptions([...new Set(data.map(item => new Date(item.fecha).getMonth()+ 1))].sort((a, b) => b - a));
           setAnioOptions([...new Set(data.map(item => new Date(item.fecha).getFullYear()))].sort((a, b) => b - a));
           setEstacionOptions([...new Set(data.map(item => item.estacion).filter(Boolean))].sort());
         }
@@ -282,10 +285,11 @@ function Datos() {
     return tableData.filter(row => {
       const matchSitio = filterSitio ? row.codigo_perfil === filterSitio : true;
       const matchAnio = filterAnio ? new Date(row.fecha).getFullYear() === parseInt(filterAnio) : true;
+      const matchMes = filterMes ? new Date(row.fecha).getMonth() === parseInt(filterMes) : true;
       const matchEstacion = filterEstacion ? row.estacion === filterEstacion : true;
-      return matchSitio && matchAnio && matchEstacion;
+      return matchSitio && matchAnio && matchMes && matchEstacion;
     });
-  }, [tableData, filterSitio, filterAnio, filterEstacion]);
+  }, [tableData, filterSitio, filterAnio, filterMes, filterEstacion]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -326,6 +330,10 @@ function Datos() {
         <select className="filter-select" value={filterAnio} onChange={(e) => setFilterAnio(e.target.value)}>
           <option value="">Todos los Años</option>
           {anioOptions.map(anio => <option key={anio} value={anio}>{anio}</option>)}
+        </select>
+        <select className="filter-select" value={filterMes} onChange={(e) => setFilterMes(e.target.value)}>
+          <option value="">Todos los Meses</option>
+          {mesOptions.map(mes => <option key={mes} value={mes}>{mes}</option>)}
         </select>
         <select className="filter-select" value={filterEstacion} onChange={(e) => setFilterEstacion(e.target.value)}>
           <option value="">Todas las Estaciones</option>
@@ -381,11 +389,13 @@ function Predicciones() {
   const [filterSitio, setFilterSitio] = useState('');
   const [filterTarget, setFilterTarget] = useState('');
   const [filterAlerta, setFilterAlerta] = useState('');
+  const [filterAnio, setFilterAnio] = useState('');
   const [filterMes, setFilterMes] = useState('');
   
   const [sitioOptions, setSitioOptions] = useState([]);
   const [targetOptions, setTargetOptions] = useState([]);
   const [alertaOptions, setAlertaOptions] = useState([]);
+  const [anioOptions, setAnioOptions] = useState([]);
   const [mesOptions, setMesOptions] = useState([]);
   
   const [currentPage, setCurrentPage] = useState(1);
@@ -397,7 +407,7 @@ function Predicciones() {
     { accessor: 'fecha_prediccion', Header: 'Fecha de Predicción' },
     { accessor: 'codigo_perfil', Header: 'Sitio' },
     { accessor: 'target', Header: 'Variable' },
-    { accessor: 'clase_alerta', Header: 'Alerta (Clase)' },
+   //{ accessor: 'clase_alerta', Header: 'Alerta (Clase)' },
     { accessor: 'etiqueta_predicha', Header: 'Etiqueta' }
 ], []);
 
@@ -413,8 +423,9 @@ function Predicciones() {
           setSitioOptions([...new Set(data.map(item => item.codigo_perfil).filter(Boolean))].sort());
           setTargetOptions([...new Set(data.map(item => item.target).filter(Boolean))].sort());
           setAlertaOptions([...new Set(data.map(item => item.etiqueta_predicha).filter(Boolean))].sort());
+          const anios = [...new Set(data.map(item => new Date(item.fecha_prediccion).getFullYear()))].sort((a, b) => b - a);
+          setAnioOptions(anios);
           
-          // Para los meses, extraemos el nombre del mes para que sea más legible
           const meses = [...new Set(data.map(item => {
               const monthIndex = new Date(item.fecha_prediccion).getMonth();
               return new Date(0, monthIndex).toLocaleString('es-ES', { month: 'long' });
@@ -435,13 +446,14 @@ function Predicciones() {
       const matchSitio = filterSitio ? row.codigo_perfil === filterSitio : true;
       const matchTarget = filterTarget ? row.target === filterTarget : true;
       const matchAlerta = filterAlerta ? row.etiqueta_alerta === filterAlerta : true;
+      const matchAnio = filterAnio ? new Date(row.fecha_prediccion).getFullYear() === parseInt(filterAnio) : true;
       
       const monthName = new Date(row.fecha_prediccion).toLocaleString('es-ES', { month: 'long' });
       const matchMes = filterMes ? monthName.toLowerCase() === filterMes.toLowerCase() : true;
 
-      return matchSitio && matchTarget && matchAlerta && matchMes;
+      return matchSitio && matchTarget && matchAlerta && matchAnio && matchMes;
     });
-  }, [tableData, filterSitio, filterTarget, filterAlerta, filterMes]);
+  }, [tableData, filterSitio, filterTarget, filterAlerta, filterAnio, filterMes]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -486,6 +498,10 @@ function Predicciones() {
           <select className="filter-select" value={filterAlerta} onChange={(e) => setFilterAlerta(e.target.value)}>
               <option value="">Todas las Alertas</option>
               {alertaOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+          </select>
+          <select className="filter-select" value={filterAnio} onChange={(e) => setFilterAnio(e.target.value)}>
+              <option value="">Todos los Años</option>
+              {anioOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
           </select>
           <select className="filter-select" value={filterMes} onChange={(e) => setFilterMes(e.target.value)}>
               <option value="">Todos los Meses</option>

@@ -31,6 +31,11 @@ warnings.filterwarnings("ignore", category=UserWarning, module='sklearn')
 warnings.filterwarnings("ignore", category=pd.errors.PerformanceWarning)
 tf.get_logger().setLevel('ERROR')
 
+SEED = 42
+os.environ['PYTHONHASHSEED'] = str(SEED)
+np.random.seed(SEED)
+tf.random.set_seed(SEED)
+
 SITIOS_A_ANALIZAR = ['C1', 'TAC1', 'TAC4', 'DSA1', 'DCQ1']
 N_FEATURES_A_SELECCIONAR = 25
 N_SPLITS_CV_GRIDSEARCH = 2
@@ -351,6 +356,33 @@ def train_evaluate_mlp(X, y, sitio, target_name, tuner_dir):
         print(f"  -> ❌ ERROR en MLP para {sitio}/{target_name}: {e}")
         return pd.DataFrame()
 
+def seleccionar_mejor_modelo(df_results, sitio, objetivo):
+    """
+    Selecciona el mejor modelo basado en una jerarquía de métricas.
+    Prioriza modelos con buen ROC AUC y luego desempata con F1-Score.
+    """
+    print(f"--- Selección de Mejor Modelo para '{sitio}'-'{objetivo}' ---")
+    # Nivel 1: Modelos con buen poder predictivo
+    buenos_modelos = df_results[df_results['roc_auc_cv'] >= 0.60]
+    if not buenos_modelos.empty:
+        print(f"  -> Criterio: Nivel 1 (ROC AUC >= 0.60). Seleccionando por mejor F1-Score.")
+        best_model_row = buenos_modelos.loc[buenos_modelos['f1_macro_cv'].idxmax()]
+        return best_model_row
+
+    # Nivel 2: Modelos aceptables (mejor que el azar)
+    modelos_aceptables = df_results[df_results['roc_auc_cv'] >= 0.50]
+    if not modelos_aceptables.empty:
+        print(f"  -> Criterio: Nivel 2 (ROC AUC >= 0.50). Seleccionando por mejor F1-Score.")
+        best_model_row = modelos_aceptables.loc[modelos_aceptables['f1_macro_cv'].idxmax()]
+        return best_model_row
+
+    # Nivel 3: Último recurso (si ningún modelo es aceptable)
+    print(f"  -> ⚠️  ADVERTENCIA: Ningún modelo superó un ROC AUC de 0.50.")
+    print(f"  -> Criterio: Nivel 3 (Último Recurso). Seleccionando por mejor F1-Score.")
+    print(f"  -> El modelo elegido debe usarse con extrema precaución.")
+    best_model_row = df_results.loc[df_results['f1_macro_cv'].idxmax()]
+    return best_model_row
+
 # --- 4. Función Principal de Ejecución ---
 def main():
     """
@@ -436,7 +468,8 @@ def main():
             all_results.append(cur)
             
             # 6. Re-entrenamiento del mejor modelo
-            best_row = cur.loc[cur['f1_macro_cv'].idxmax()]
+            #best_row = cur.loc[cur['f1_macro_cv'].idxmax()]
+            best_row = seleccionar_mejor_modelo(cur, sitio, target_key)
             model_name, params = best_row['modelo'], best_row['best_params']
             
             print(f"💾 Entrenando y guardando el mejor modelo: {model_name} (F1-Score CV: {best_row['f1_macro_cv']:.4f})")

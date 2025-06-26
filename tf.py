@@ -122,10 +122,10 @@ def obtener_dataframe():
     df_final=imputacion_temperatura_aire(df_final)
 
     # --- Ejecución principal ---
-    df_final= imputacion_clorofila(df_final)
-    df_final= imputar_pht(df_final)
-    df_final= imputar_prs(df_final)
-    df_final= imputar_nitrogeno(df_final)
+    df_final, resultados_clorofila = imputacion_clorofila(df_final)
+    df_final, resultados_pht = imputar_pht(df_final)
+    df_final, resultados_prs = imputar_prs(df_final)
+    df_final, resultado_imputaciones, resultados_nitrogeno = imputar_nitrogeno(df_final)
 
     # Cálculo de Nitrogeno Inorganico Total
     # Esta suma usa 'N-NH4 (µg/l)', 'N-NO2 (µg/l)' y 'N-NO3 (mg/l)'
