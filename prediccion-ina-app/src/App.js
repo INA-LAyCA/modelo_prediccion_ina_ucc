@@ -80,7 +80,7 @@ export function Predict() {
   useEffect(() => {
     const fetchOptions = async () => {
       try {
-        const response = await axios.get('http://localhost:5001/get-options');
+        const response = await axios.get('/api/get-options');
         setOptions(['Todos', ...response.data]);
       } catch (error) {
         console.error('Error al obtener las opciones:', error);
@@ -105,7 +105,7 @@ export function Predict() {
 
     setIsLoading(true); // Activa el estado de carga
     try {
-      const response = await axios.post('http://localhost:5001/predict', {
+      const response = await axios.post('/api/predict', {
         option: selectedOption,
       });
 
@@ -263,7 +263,7 @@ function Datos() {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        const response = await axios.get('http://localhost:5001/datos');
+        const response = await axios.get('/api/datos');
         const data = Array.isArray(response.data) ? response.data : [];
         setTableData(data);
 
@@ -416,7 +416,7 @@ function Predicciones() {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        const response = await axios.get('http://localhost:5001/predicciones');
+        const response = await axios.get('/api/predicciones');
         const data = Array.isArray(response.data) ? response.data : [];
         setTableData(data);
 

@@ -17,7 +17,7 @@
     "build": "react-scripts build",
     "test": "react-scripts test",
     "test:unit": "react-scripts test --watchAll=false --testPathPattern=src/.*\\.(test|spec)\\.(js|jsx)$",
-    "test:e2e": "cypress run --config-file cypress.json",
+    "test:e2e": "start-server-and-test start http://localhost:3000 cy:run",
     "eject": "react-scripts eject",
     "cy:run": "cypress run"
   },
