@@ -32,7 +32,7 @@ jobs:
       # 4. Instala las dependencias del frontend
       - name: Instalar dependencias del Frontend
         run: |
-          cd frontend
+          cd prediccion-ina-app
           npm install
 
       # 5. Levanta la Base de Datos de Prueba para Pytest
@@ -46,7 +46,7 @@ jobs:
       # 7. Corre las pruebas unitarias del frontend con Jest
       - name: Correr pruebas Unitarias (Jest)
         run: |
-          cd frontend
+          cd prediccion-ina-app
           npm test -- --watchAll=false
       
       # 8. Inicia el backend para las pruebas E2E
@@ -57,7 +57,7 @@ jobs:
       # 9. Corre las pruebas End-to-End con Cypress
       - name: Correr pruebas End-to-End (Cypress)
         run: |
-          cd frontend
+          cd prediccion-ina-app
           npm run test:e2e
 
       # 10. Apaga los servicios de prueba (se ejecuta siempre)
