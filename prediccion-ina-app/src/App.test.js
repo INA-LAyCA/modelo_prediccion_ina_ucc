@@ -86,7 +86,7 @@ describe('Predict Component', () => {
     expect(within(cianoItem).getByText(/MLP/i)).toBeInTheDocument();
 
     // Verificar que la llamada POST se hizo con los datos correctos
-    expect(axios.post).toHaveBeenCalledWith('http://localhost:5001/predict', {
+    expect(axios.post).toHaveBeenCalledWith('/api/predict', {
       option: 'C1',
     });
   });
