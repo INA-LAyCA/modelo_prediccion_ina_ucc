@@ -1,74 +1,35 @@
-# Nombre del workflow
-name: Pipeline de CI/CD Final
+# Versión de la sintaxis de Docker Compose
+version: '3.8'
 
-on:
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+# Definición de los servicios (contenedores) que componen la aplicación
+services:
 
-jobs:
-  # --- TRABAJO 1: CORRER TODAS LAS PRUEBAS ---
-  test:
-    name: ✅ Validar y Probar
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout del código
-        uses: actions/checkout@v4
-      - name: Configurar Python 3.12
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.12'
-      - name: Instalar dependencias del Backend
-        run: pip install -r requirements.txt
-      - name: Instalar dependencias del Frontend
-        run: |
-          cd prediccion-ina-app
-          npm install
-      - name: Levantar servicios de prueba
-        run: docker compose -f docker-compose.test.yml up -d
-      - name: Correr pruebas de Backend (Pytest)
-        run: pytest
-      - name: Correr pruebas Unitarias (Jest)
-        run: |
-          cd prediccion-ina-app
-          npm test -- --watchAll=false
-      - name: Iniciar Backend en segundo plano
-        run: python backend.py &
-      - name: Correr pruebas End-to-End (Cypress)
-        run: |
-          cd prediccion-ina-app
-          npm run test:e2e
-      - name: Apagar servicios de prueba
-        if: always()
-        run: docker compose -f docker-compose.test.yml down
+  # --- Servicio del Backend (Python/Flask) ---
+  backend:
+    # 'build: .' le dice a Docker Compose que busque el Dockerfile
+    # en el directorio actual (la raíz del proyecto) para construir esta imagen.
+    build: .
+    # Le damos un nombre al contenedor para identificarlo fácilmente
+    container_name: mi_app_backend
+    # Opcional: Mapea el puerto para poder acceder al backend directamente
+    # desde el servidor si fuera necesario para depuración.
+    # El tráfico normal de los usuarios irá a través del frontend.
+    ports:
+      - "5001:5001"
+    # Reinicia el contenedor automáticamente si falla
+    restart: always
 
-  # --- TRABAJO 2: CONSTRUIR Y EMPAQUETAR IMÁGENES ---
-  build-and-package:
-    name: 📦 Construir y Empaquetar Imágenes
-    needs: test
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout del código
-        uses: actions/checkout@v4
-
-      # -- SE HA ELIMINADO EL PASO DE LOGIN AQUÍ --
-
-      # 1. Construye las imágenes de producción
-      - name: Construir imágenes de Docker
-        run: docker compose -f docker-compose.yml build
-
-      # 2. Empaqueta las imágenes en archivos .tar
-      - name: Guardar imágenes como archivos tar
-        run: |
-          docker save mi_app_backend:latest > backend-image.tar
-          docker save mi_app_frontend:latest > frontend-image.tar
-
-      # 3. Sube los archivos .tar como artefactos del workflow
-      - name: Subir artefactos de imagen
-        uses: actions/upload-artifact@v4
-        with:
-          name: docker-images
-          path: |
-            backend-image.tar
-            frontend-image.tar
+  # --- Servicio del Frontend (React/Nginx) ---
+  frontend:
+    # Busca el Dockerfile en la carpeta './frontend' para construir esta imagen.
+    build: ./prediccion-ina-app
+    container_name: mi_app_frontend
+    # Mapea el puerto 80 del contenedor (donde escucha Nginx) al puerto 3000
+    # del servidor. Los usuarios accederán a la app a través de la IP_DEL_SERVIDOR:3000
+    ports:
+      - "3000:80"
+    # El frontend depende del backend. Esto asegura que el backend se inicie primero.
+    depends_on:
+      - backend
+    # Reinicia el contenedor automáticamente si falla
+    restart: always
