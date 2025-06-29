@@ -24,7 +24,7 @@ jobs:
         run: pip install -r requirements.txt
       - name: Instalar dependencias del Frontend
         run: |
-          cd frontend
+          cd prediccion-ina-app
           npm install
       - name: Levantar servicios de prueba
         run: docker compose -f docker-compose.test.yml up -d
@@ -32,13 +32,13 @@ jobs:
         run: pytest
       - name: Correr pruebas Unitarias (Jest)
         run: |
-          cd frontend
+          cd prediccion-ina-app
           npm test -- --watchAll=false
       - name: Iniciar Backend en segundo plano
         run: python backend.py &
       - name: Correr pruebas End-to-End (Cypress)
         run: |
-          cd frontend
+          cd prediccion-ina-app
           npm run test:e2e
       - name: Apagar servicios de prueba
         if: always()
