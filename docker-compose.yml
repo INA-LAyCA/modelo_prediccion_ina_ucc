@@ -1,59 +1,79 @@
-# Versión de la sintaxis de Docker Compose
-version: '3.8'
+# Nombre del workflow
+name: Pipeline de CI/CD Final
 
-# Definición de los servicios (contenedores) de nuestra aplicación
-services:
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
 
-  # Servicio del Backend de Python/Flask
-  backend:
-    # Construye la imagen usando el Dockerfile en el directorio actual (.)
-    build: .
-    # Nombra el contenedor para identificarlo fácilmente
-    container_name: mi_app_backend
-    # Mapea el puerto 5001 del contenedor al 5001 de la máquina host
-    # Así podemos acceder a la API directamente si lo necesitamos
-    ports:
-      - "5001:5001"
-    # El backend no se iniciará hasta que el servicio 'db' esté listo
-    depends_on:
-      - db
-    # Las variables de entorno que tu backend necesita para conectarse a la BD.
-    # Fíjate que el 'host' es 'db', el nombre del servicio de la base de datos.
-    environment:
-      - DATABASE_URL=postgresql+psycopg2://user_prod:pass_prod@db:5432/db_prod
-    # NOTA: En un entorno de producción real, estos valores vendrían de un
-    # sistema de gestión de secretos, no estarían escritos aquí.
+jobs:
+  # --- TRABAJO 1: CORRER TODAS LAS PRUEBAS ---
+  test:
+    name: ✅ Validar y Probar
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v4
+      # ... (todos los pasos de testing que ya funcionan)
+      - name: Configurar Python 3.12
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+      - name: Instalar dependencias del Backend
+        run: pip install -r requirements.txt
+      - name: Instalar dependencias del Frontend
+        run: |
+          cd frontend
+          npm install
+      - name: Levantar servicios de prueba
+        run: docker compose -f docker-compose.test.yml up -d
+      - name: Correr pruebas de Backend (Pytest)
+        run: pytest
+      - name: Correr pruebas Unitarias (Jest)
+        run: |
+          cd frontend
+          npm test -- --watchAll=false
+      - name: Iniciar Backend en segundo plano
+        run: python backend.py &
+      - name: Correr pruebas End-to-End (Cypress)
+        run: |
+          cd frontend
+          npm run test:e2e
+      - name: Apagar servicios de prueba
+        if: always()
+        run: docker compose -f docker-compose.test.yml down
 
-  # Servicio del Frontend de React/Nginx
-  frontend:
-    # Construye la imagen usando el Dockerfile que está en la carpeta ./frontend
-    build: ./prediccion-ina-app
-    container_name: mi_app_frontend
-    # Mapea el puerto 80 del contenedor (donde escucha Nginx) al puerto 3000
-    # de nuestra máquina. Accederemos a la app desde http://localhost:3000
-    ports:
-      - "3000:80"
-    # El frontend depende del backend para las llamadas a la API
-    depends_on:
-      - backend
+  # --- TRABAJO 2: CONSTRUIR Y EMPAQUETAR IMÁGENES ---
+  build-and-package:
+    name: 📦 Construir y Empaquetar Imágenes
+    # Solo se ejecuta si el trabajo 'test' fue exitoso
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v4
 
-  # Servicio de la Base de Datos PostgreSQL
-  db:
-    # Usa la imagen oficial de PostgreSQL
-    image: postgres:13
-    container_name: mi_app_db
-    # Las credenciales para la base de datos de producción
-    environment:
-      - POSTGRES_USER=user_prod
-      - POSTGRES_PASSWORD=pass_prod
-      - POSTGRES_DB=db_prod
-    # Monta un volumen para que los datos de la base de datos persistan
-    # incluso si el contenedor se destruye y se vuelve a crear.
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    # No es necesario exponer los puertos de la base de datos al exterior,
-    # ya que el backend se comunica con ella a través de la red interna de Docker.
+      # Ya no necesitamos iniciar sesión en Docker Hub
+      # - name: Iniciar sesión en Docker Hub ...
 
-# Definición de los volúmenes nombrados
-volumes:
-  postgres_data:
+      # 1. Construye las imágenes de producción
+      - name: Construir imágenes de Docker
+        run: docker compose -f docker-compose.yml build
+
+      # 2. Empaqueta las imágenes en archivos .tar
+      - name: Guardar imágenes como archivos tar
+        run: |
+          docker save mi_app_backend:latest > backend-image.tar
+          docker save mi_app_frontend:latest > frontend-image.tar
+
+      # 3. Sube los archivos .tar como artefactos del workflow
+      - name: Subir artefactos de imagen
+        uses: actions/upload-artifact@v4
+        with:
+          # El nombre del archivo ZIP que podrás descargar
+          name: docker-images
+          # Los archivos que se incluirán en el ZIP
+          path: |
+            backend-image.tar
+            frontend-image.tar
