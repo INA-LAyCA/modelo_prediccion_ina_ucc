@@ -15,7 +15,6 @@ jobs:
     steps:
       - name: Checkout del código
         uses: actions/checkout@v4
-      # ... (todos los pasos de testing que ya funcionan)
       - name: Configurar Python 3.12
         uses: actions/setup-python@v4
         with:
@@ -47,15 +46,13 @@ jobs:
   # --- TRABAJO 2: CONSTRUIR Y EMPAQUETAR IMÁGENES ---
   build-and-package:
     name: 📦 Construir y Empaquetar Imágenes
-    # Solo se ejecuta si el trabajo 'test' fue exitoso
     needs: test
     runs-on: ubuntu-latest
     steps:
       - name: Checkout del código
         uses: actions/checkout@v4
 
-      # Ya no necesitamos iniciar sesión en Docker Hub
-      # - name: Iniciar sesión en Docker Hub ...
+      # -- SE HA ELIMINADO EL PASO DE LOGIN AQUÍ --
 
       # 1. Construye las imágenes de producción
       - name: Construir imágenes de Docker
@@ -71,9 +68,7 @@ jobs:
       - name: Subir artefactos de imagen
         uses: actions/upload-artifact@v4
         with:
-          # El nombre del archivo ZIP que podrás descargar
           name: docker-images
-          # Los archivos que se incluirán en el ZIP
           path: |
             backend-image.tar
             frontend-image.tar
