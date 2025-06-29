@@ -168,8 +168,14 @@ def preprocess_and_feature_engineer(df_raw):
 
 def prepare_final_dataset(df_site_input, target_config):
     df_site = df_site_input.sort_values(by=COLUMNA_FECHA).copy()
-    record_for_prediction = df_site.iloc[-1:].copy()
     col_orig = target_config['original_values_col']
+ 
+    if df_site.empty or col_orig not in df_site.columns:
+        # X vacía, y vacía, X_pred vacía
+        return pd.DataFrame(), pd.Series(dtype='float64'), pd.DataFrame()
+
+    record_for_prediction = df_site.iloc[-1:].copy()    
+    
     df_site[target_config['classified_target_col']] = (
         df_site[col_orig].apply(target_config['classification_function'])
     )

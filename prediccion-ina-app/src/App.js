@@ -3,10 +3,11 @@
 // npm install axios react-router-dom
 
 import React, { useState, useEffect, useMemo } from 'react';
-import axios from 'axios';
 import { BrowserRouter as Router, Route, Routes, useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import './App.css';
 import logo from './logo.png';
+
 
 // Componente de pantalla de inicio
 function Home({ onPredictStart, onDataStart, onPredictionsStart }) {
@@ -67,7 +68,7 @@ function PredictionDetails({ targetName, data }) {
 
 
 // Componente principal para seleccionar opciones y predecir
-function Predict() {
+export function Predict() {
   const [selectedOption, setSelectedOption] = useState('');
   const [predictionResult, setPredictionResult] = useState([]);
   const [options, setOptions] = useState([]);
@@ -545,24 +546,16 @@ function Predicciones() {
   );
 }
 
-function formatDate(dateString) {
-  // Si la fecha es nula o inválida, devuelve un guion.
-  if (!dateString) {
-    return '-';
+export function formatDate(dateString) {
+  if (!dateString) return '-'
+  // Sólo aceptamos strings tipo 4 dígitos-2 dígitos-2 dígitos
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+    return 'Fecha inválida'
   }
-  try {
-    const date = new Date(dateString);
-    // Obtenemos día, mes y año. padStart asegura que tengan dos dígitos (ej. 05 en vez de 5).
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0'); // Los meses son 0-11, por eso +1
-    const year = date.getFullYear();
-    // Verificamos si la fecha es válida antes de devolverla
-    if (isNaN(day) || isNaN(month) || isNaN(year)) return "Fecha inválida";
-    return `${day}/${month}/${year}`;
-  } catch (error) {
-    return "Fecha inválida";
-  }
+  const [year, month, day] = dateString.split('-')
+  return `${day}/${month}/${year}`
 }
+
 
 // Componente de la aplicación principal
 function App() {
@@ -600,5 +593,5 @@ function AppRoot() {
     </Router>
   );
 }
-
+export { Home, PredictionDetails};
 export default AppRoot;

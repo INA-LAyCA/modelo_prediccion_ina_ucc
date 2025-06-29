@@ -20,6 +20,8 @@ App2.js
 .env.development.local
 .env.test.local
 .env.production.local
+new_vevnv/
+venv/
 
 npm-debug.log*
 yarn-debug.log*
@@ -34,3 +36,54 @@ __pycache__/
 .env
 *.egg-info/
 " > .gitignore
+
+# Carpetas de caché de Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Archivos de Keras Tuner
+tuner_logs/
+
+# Archivos y carpetas de Node.js / Frontend
+# -----------------------------------------
+# La carpeta de todas las dependencias instaladas. ¡Es la más importante a ignorar!
+frontend/node_modules
+node_modules/
+
+# Archivos de log de npm
+frontend/npm-debug.log*
+npm-debug.log*
+
+# El directorio de la build de producción de React
+frontend/build
+build/
+
+# Archivos y carpetas de Cypress
+# --------------------------------
+# Ignorar los artefactos generados por las pruebas de Cypress
+cypress/screenshots/
+cypress/videos/
+cypress/downloads/
+
+# Archivos de Sistema Operativo
+# -----------------------------
+# macOS
+.DS_Store
+# Windows
+Thumbs.db
+
+# Archivos de Entorno
+# -------------------
+# ¡MUY IMPORTANTE! Si alguna vez creas un archivo .env para guardar
+# contraseñas o claves de API, esta línea evita que se suba accidentalmente.
+.env
+*.env
+.env.*
+
+# Archivos de Configuración del Editor de Código
+# ------------------------------------------
+.vscode/
+.idea/
+

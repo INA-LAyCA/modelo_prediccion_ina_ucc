@@ -43,63 +43,55 @@ engine3 = create_engine(f'postgresql+psycopg2://{usuario}:{contraseña}@{host2}:
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
+def print_debug_cols(step_name, df):
+    print(f"\n--- [DEBUG] Columnas en el paso: {step_name} ---")
+    print(df.columns.tolist())
+    print("-" * 50)
+
 # Función para obtener y procesar el DataFrame
 def obtener_dataframe():
-    query = "SELECT * from vistaconjunto"
     try:
-        df = pd.read_sql(query, engine)
-        print(df.head())
+        df = pd.read_sql("SELECT * from vistaconjunto", engine)
+        dfP = pd.read_sql("SELECT * from vista_alerts", engine2)
     except Exception as e:
-        print(f"Error: {e}")
-        return None
-    # Consulta para obtener los datos 
-    query2 = "SELECT * from vista_alerts"
-    try:
-        dfP = pd.read_sql(query2, engine2)
-        print(dfP.head())
-    except Exception as e:
-        print(f"Error: {e}")    
-
-    # DataFrame base sin duplicados y columnas fijas
+        print(f"Error leyendo de la base de datos: {e}")
+        return pd.DataFrame()
+    
     base_columns = ['id_registro', 'condicion_termica', 'fecha', 'codigo_perfil', 'descripcion_estratificacion']
     df_base = df[base_columns].drop_duplicates()
     
-    #Pivotear los datos
     df_pivot = df.pivot_table(index='id_registro', columns='parametro', values='valor_parametro', aggfunc='first').reset_index()
     df_final = pd.merge(df_base, df_pivot, on='id_registro', how='left')
+    print_debug_cols("Después del Merge Inicial", df_final)
+
+    cols_cianobact = ['Anabaena', 'Anabaenopsis', 'Aphanizomenon', 'Aphanocapsa', 'Aphanothece', 'Geitlerinema', 'Merismopedia', 'Chroococcus', 'Nostoc', 'Microcystis', 'Oscillatoria', 'Phormidium', 'Planktothrix', 'Pseudoanabaena', 'Raphydiopsis', 'Romeria', 'Spirulina', 'Dolichospermum', 'Leptolyngbya', 'Synechococcus']
     
-    # Validar suma de Cianobacterias: nulo si alguno es nulo
-    cols_cianobact = ['Anabaena', 'Anabaenopsis', 'Aphanizomenon', 'Aphanocapsa', 'Aphanothece', 
-                     'Geitlerinema', 'Merismopedia', 'Chroococcus', 'Nostoc', 'Microcystis', 
-                     'Oscillatoria', 'Phormidium', 'Planktothrix', 'Pseudoanabaena', 'Raphydiopsis', 
-                    'Romeria', 'Spirulina', 'Dolichospermum', 'Leptolyngbya', 'Synechococcus']
+    # Lógica robusta para cianobacterias
+    cols_cianobact_presentes = [col for col in cols_cianobact if col in df_final.columns]
+    if cols_cianobact_presentes:
+        df_final['Cianobacterias Total'] = df_final[cols_cianobact_presentes].apply(lambda row: np.nan if row.isnull().any() else row.sum(), axis=1)
+        df_final.drop(columns=cols_cianobact_presentes, inplace=True)
+    else:
+        df_final['Cianobacterias Total'] = np.nan
+    print_debug_cols("Después de procesar Cianobacterias", df_final)
 
-    # Crear nuevas columnas/variables de entrada basadas en otras columnas
-    df_final['Cianobacterias Total'] = df_final[cols_cianobact].apply(
-    lambda row: np.nan if row.isnull().any() else row.sum(), axis=1)
-    df_final.drop(columns=cols_cianobact, inplace=True)
-
-    # Convertir la columna 'fecha' a datetime, manejando errores
     df_final['fecha'] = pd.to_datetime(df_final['fecha'], format='%Y-%m-%d', errors='coerce')
-
-    # Eliminar filas con valores no validos en la columna 'fecha'
-    df_final = df_final.dropna(subset=['fecha'])
-
-    # Filtrar por fecha límite
-    fecha_limite = pd.Timestamp('1999-07-24')
-    df_final = df_final[df_final['fecha'] >= fecha_limite]
+    df_final.dropna(subset=['fecha'], inplace=True)
+    df_final = df_final[df_final['fecha'] >= pd.Timestamp('1999-07-24')]
 
     #Imputación Cota
     df_final = imputar_cota_m(df_final)
 
     #Selección de mejores fechas y eliminacion de duplicados
     df_final = seleccionar_medicion_mensual(df_final)
+    print_debug_cols("Después de seleccionar medición mensual", df_final)
     
     #Imputar condicion termica
     df_final=condicion_termica(df_final, engine)
 
     #Union temperatura del aire
     df_final=union_temperatura_aire (df_final, engine2)
+    print_debug_cols("Después de unir Temperatura Aire", df_final)
     
     df_final['fecha'] = pd.to_datetime(df_final['fecha'], errors='coerce') # Re-asegurar por si acaso
 
@@ -119,11 +111,14 @@ def obtener_dataframe():
     df_final=imputacion_temperatura_aire(df_final)
 
     # --- Ejecución principal ---
-    df_final, resultados_clorofila = imputacion_clorofila(df_final)
-    df_final, resultados_pht = imputar_pht(df_final)
-    df_final, resultados_prs = imputar_prs(df_final)
+    df_final, _ = imputacion_clorofila(df_final)
+    print_debug_cols("Después de imputar Clorofila", df_final)
+    df_final, _ = imputar_pht(df_final)
+    print_debug_cols("Después de imputar Clorofila", df_final)
+    df_final, _ = imputar_prs(df_final)
+    print_debug_cols("Después de imputar Clorofila", df_final)
     df_final, resultado_imputaciones, resultados_nitrogeno = imputar_nitrogeno(df_final)
-
+    print_debug_cols("Después de imputar Clorofila", df_final)
     # Cálculo de Nitrogeno Inorganico Total
     # Esta suma usa 'N-NH4 (µg/l)', 'N-NO2 (µg/l)' y 'N-NO3 (mg/l)'
     df_final['Nitrogeno Inorganico Total (µg/l)'] = df_final.apply(
@@ -131,33 +126,39 @@ def obtener_dataframe():
         else row['N-NH4 (µg/l)'] + row['N-NO2 (µg/l)'] + (row['N-NO3 (mg/l)'] * 1000),
         axis=1
     )
+    print_debug_cols("Después de imputar Clorofila", df_final)
 
     #Eliminar las columnas de nitrógeno individuales (incluyendo N-NO3 (mg/l)) ---
-    columnas_nitrogeno = [
-        'N-NH4 (µg/l)',
-        'N-NO2 (µg/l)',
-        'N-NO3 (µg/l)', # La columna intermedia de la imputación
-        'N-NO3 (mg/l)'  # La columna en mg/l que se usó en la suma
+    # CÓDIGO NUEVO Y ROBUSTO
+    columnas_nitrogeno_a_eliminar = [
+    'N-NH4 (µg/l)',
+    'N-NO2 (µg/l)',
+    'N-NO3 (µg/l)',
+    'N-NO3 (mg/l)'
     ]
 
-    # Filtrar solo las columnas que realmente existen en el DataFrame para evitar errores
-    df_final.drop(columns=columnas_nitrogeno, inplace=True)
+# Filtra la lista para obtener solo las columnas que SÍ existen en el DataFrame
+    columnas_existentes_para_eliminar = [
+        col for col in columnas_nitrogeno_a_eliminar if col in df_final.columns
+    ]
 
-    df_final['Dominancia de Cianobacterias (%)'] = (df_final['Cianobacterias Total']*100)/df_final['Total Algas Sumatoria (Cel/L)']
-    df_final.loc[
+# Elimina únicamente las columnas que existen
+    if columnas_existentes_para_eliminar:
+        df_final.drop(columns=columnas_existentes_para_eliminar, inplace=True)
+    print_debug_cols("Después de imputar Clorofila", df_final)
+    if 'Cianobacterias Total' in df_final.columns and 'Total Algas Sumatoria (Cel/L)' in df_final.columns:
+        df_final['Dominancia de Cianobacterias (%)'] = (df_final['Cianobacterias Total'] * 100) / df_final['Total Algas Sumatoria (Cel/L)']
+        print_debug_cols("Después de imputar Clorofila", df_final)
+    else:
+        df_final['Dominancia de Cianobacterias (%)'] = np.nandf_final.loc[
+    
     df_final['codigo_perfil'].isin(['C1', 'TAC1', 'TAC4']) & df_final['condicion_termica'].isna(),
     'condicion_termica'
     ] = 'SD'
+        
+    print_debug_cols("Después de imputar Clorofila", df_final)
     df_final=union_precipitacion(df_final, engine2)
-
-
-     # --- GUARDAR EN LA BASE DE DATOS ---
-    #try:
-     #   print(f"Guardando DataFrame procesado en la tabla 'dataframe'...")
-      #  df_final.to_sql('dataframe', engine3, if_exists='replace', index=False)
-       # print("¡Guardado en la base de datos exitoso!")
-    #except Exception as e:
-     #   print(f"Error al guardar el DataFrame en la base de datos: {e}")
+    print_debug_cols("Después de imputar Clorofila", df_final)
 
     return df_final
 
@@ -165,38 +166,40 @@ def obtener_dataframe():
 
 #Función union de datos de precipitación al dataframe final
 def union_precipitacion (df_final, engine2):
-    query4 = "SELECT * FROM vista_precipitacion_acumulada_3d;"
-    df_precipitacion = pd.read_sql(query4, engine2)
-    print("Llego hasta conectarme a la base")
+    try:
+        query4 = "SELECT * FROM vista_precipitacion_acumulada_3d;"
+        df_precipitacion = pd.read_sql(query4, engine2)
+        if df_precipitacion.empty or 'fecha_dia' not in df_precipitacion.columns:
+            return df_final
 
-    # sensores de interés
-    sensores_interes = {
-        600: '600_Bo_El_Canal', # <-- Normalizado
-        700: '700_Confluencia_El_Cajon', # <-- NORMALIZADO (sin acento)
-        1100: '1100_CIRSA_Villa_Carlos_Paz', # <-- Normalizado
-    }
+        # sensores de interés
+        sensores_interes = {
+            600: '600_Bo_El_Canal', # <-- Normalizado
+            700: '700_Confluencia_El_Cajon', # <-- NORMALIZADO (sin acento)
+            1100: '1100_CIRSA_Villa_Carlos_Paz', # <-- Normalizado
+        }
 
-    # Reemplazar id_sensor por el nombre descriptivo
-    df_precipitacion['sensor_nombre'] = df_precipitacion['sensor_id'].map(sensores_interes)
-    print("Llego hasta leer los sensores")
-    # Pivotear: fecha como índice, cada sensor como una columna
-    df_precipitacion_pivot = df_precipitacion.pivot(
-        index='fecha_dia',
-        columns='sensor_id',
-        values='precipitacion_acumulada_3d'
-    ).reset_index()
-    print("Llego hasta pivotear sensores como columnas")
-    # Asegurarse que la fecha del df_final también sea tipo date
-    df_final['fecha'] = pd.to_datetime(df_final['fecha']).dt.date
-    df_precipitacion_pivot['fecha_dia'] = pd.to_datetime(df_precipitacion_pivot['fecha_dia']).dt.date
+        # Reemplazar id_sensor por el nombre descriptivo
+        df_precipitacion['sensor_nombre'] = df_precipitacion['sensor_id'].map(sensores_interes)
+        print("Llego hasta leer los sensores")
+        # Pivotear: fecha como índice, cada sensor como una columna
+        df_precipitacion_pivot = df_precipitacion.pivot(
+            index='fecha_dia',
+            columns='sensor_id',
+            values='precipitacion_acumulada_3d'
+        ).reset_index()
+        print("Llego hasta pivotear sensores como columnas")
+        # Asegurarse que la fecha del df_final también sea tipo date
+        df_final['fecha'] = pd.to_datetime(df_final['fecha']).dt.date
+        df_precipitacion_pivot['fecha_dia'] = pd.to_datetime(df_precipitacion_pivot['fecha_dia']).dt.date
 
-    # merge por fecha
-    df_final = df_final.merge(df_precipitacion_pivot, how='left', left_on='fecha', right_on='fecha_dia')
-    print("Llego hasta merge")
-    # eliminar la columna fecha_dia para evitar duplicado
-    df_final.drop(columns=['fecha_dia'], inplace=True)
-
-    return df_final
+        # merge por fecha
+        df_merged = df_final.merge(df_precipitacion_pivot, how='left', left_on='fecha', right_on='fecha_dia')
+        if 'fecha_dia' in df_merged.columns:
+            df_merged.drop(columns=['fecha_dia'], inplace=True)
+        return df_merged
+    except Exception:
+        return df_final
 
 
 def asignar_estacion(mes):
@@ -211,112 +214,161 @@ def asignar_estacion(mes):
 
 def imputacion_clorofila(df_final):
     df = df_final.copy()
-
-    #if 'mes' not in df.columns:
-    #    df['fecha'] = pd.to_datetime(df['fecha'], errors='coerce')
-    #    df['mes'] = df['fecha'].dt.month
-    #if 'estacion' not in df.columns:
-    #    df['estacion'] = df['mes'].apply(asignar_estacion)
-
+    if 'Clorofila (µg/l)' not in df.columns: return df, pd.DataFrame()
+    
     resultados = []
     for (sitio, estacion), grupo in df.groupby(['codigo_perfil', 'estacion']):
         base_vars = ['Total Algas Sumatoria (Cel/L)', 'Cianobacterias Total']
-        if grupo[['PHT (µg/l)', 'PRS (µg/l)']].notna().all().all():
-            predictores = base_vars + ['PHT (µg/l)', 'PRS (µg/l)']
+        predictores_fosforo = ['PHT (µg/l)', 'PRS (µg/l)']
+        
+        if all(col in grupo.columns for col in predictores_fosforo) and grupo[predictores_fosforo].notna().all().all():
+            predictores = base_vars + predictores_fosforo
         else:
             predictores = base_vars + ['T° (°C)']
+        
+        predictores_existentes = [p for p in predictores if p in grupo.columns]
+        if not predictores_existentes: continue
+            
+        grupo_completo = grupo.dropna(subset=predictores_existentes + ['Clorofila (µg/l)'])
+        if len(grupo_completo) < 5: continue
 
-        grupo_completo = grupo.dropna(subset=['Clorofila (µg/l)'] + predictores)
-        if len(grupo_completo) < 5:
-            continue
-
-        X = grupo_completo[predictores]
+        X = grupo_completo[predictores_existentes]
         y = grupo_completo['Clorofila (µg/l)']
+        
         modelo = RandomForestRegressor(n_estimators=100, random_state=42)
         mae_modelo = -cross_val_score(modelo, X, y, scoring='neg_mean_absolute_error', cv=3).mean()
         mediana_val = y.median()
         mae_mediana = mean_absolute_error(y, [mediana_val] * len(y))
         usar_modelo = mae_modelo < mae_mediana
 
-        if usar_modelo:
-            modelo.fit(X, y)
+        if usar_modelo: modelo.fit(X, y)
 
         grupo_faltantes = grupo[grupo['Clorofila (µg/l)'].isna()]
-        grupo_pred = grupo_faltantes.dropna(subset=predictores)
+        grupo_pred = grupo_faltantes.dropna(subset=predictores_existentes)
+        
         for idx, fila in grupo_pred.iterrows():
-            X_pred = fila[predictores].values.reshape(1, -1)
+            X_pred = fila[predictores_existentes].values.reshape(1, -1)
             imputado = modelo.predict(X_pred)[0] if usar_modelo else mediana_val
             df.loc[df['id_registro'] == fila['id_registro'], 'Clorofila (µg/l)'] = imputado
             resultados.append({'id_registro': fila['id_registro'], 'valor_imputado': imputado, 'metodo': 'modelo' if usar_modelo else 'mediana'})
+            
     return df, pd.DataFrame(resultados)
+
 
 def imputar_pht(df_final):
     df = df_final.copy()
+    if 'PHT (µg/l)' not in df.columns: return df, pd.DataFrame()
+
     resultados = []
-    predictores = ['Clorofila (µg/l)', 'Total Algas Sumatoria (Cel/L)', 'Cianobacterias Total', 'T° (°C)']
+    predictores_posibles = ['Clorofila (µg/l)', 'Total Algas Sumatoria (Cel/L)', 'Cianobacterias Total', 'T° (°C)']
+    
     for (sitio, estacion), grupo in df.groupby(['codigo_perfil', 'estacion']):
-        grupo_completo = grupo.dropna(subset=predictores + ['PHT (µg/l)'])
-        if len(grupo_completo) < 5:
-            continue
-        X = grupo_completo[predictores]
+        predictores_existentes = [p for p in predictores_posibles if p in grupo.columns]
+        if not predictores_existentes: continue
+
+        grupo_completo = grupo.dropna(subset=predictores_existentes + ['PHT (µg/l)'])
+        if len(grupo_completo) < 5: continue
+        
+        X = grupo_completo[predictores_existentes]
         y = grupo_completo['PHT (µg/l)']
+        
         modelo = RandomForestRegressor(n_estimators=100, random_state=42)
         mae_modelo = -cross_val_score(modelo, X, y, scoring='neg_mean_absolute_error', cv=3).mean()
         mediana_val = y.median()
         mae_mediana = mean_absolute_error(y, [mediana_val] * len(y))
         usar_modelo = mae_modelo < mae_mediana
-        if usar_modelo:
-            modelo.fit(X, y)
+        
+        if usar_modelo: modelo.fit(X, y)
+            
         grupo_faltantes = grupo[grupo['PHT (µg/l)'].isna()]
-        grupo_pred = grupo_faltantes.dropna(subset=predictores)
+        grupo_pred = grupo_faltantes.dropna(subset=predictores_existentes)
+        
         for idx, fila in grupo_pred.iterrows():
-            X_pred = fila[predictores].values.reshape(1, -1)
+            X_pred = fila[predictores_existentes].values.reshape(1, -1)
             imputado = modelo.predict(X_pred)[0] if usar_modelo else mediana_val
             df.loc[df['id_registro'] == fila['id_registro'], 'PHT (µg/l)'] = imputado
             resultados.append({'id_registro': fila['id_registro'], 'valor_imputado': imputado, 'metodo': 'modelo' if usar_modelo else 'mediana'})
+            
     return df, pd.DataFrame(resultados)
 
 def imputar_prs(df_final):
     df = df_final.copy()
+    if 'PRS (µg/l)' not in df.columns: return df, pd.DataFrame()
+
     resultados = []
-    predictores = ['PHT (µg/l)', 'Clorofila (µg/l)', 'Total Algas Sumatoria (Cel/L)', 'Cianobacterias Total', 'T° (°C)']
+    predictores_posibles = ['PHT (µg/l)', 'Clorofila (µg/l)', 'Total Algas Sumatoria (Cel/L)', 'Cianobacterias Total', 'T° (°C)']
+    
     for (sitio, estacion), grupo in df.groupby(['codigo_perfil', 'estacion']):
-        grupo_completo = grupo.dropna(subset=predictores + ['PRS (µg/l)'])
-        if len(grupo_completo) < 5:
-            continue
-        X = grupo_completo[predictores]
+        predictores_existentes = [p for p in predictores_posibles if p in grupo.columns]
+        if not predictores_existentes: continue
+
+        grupo_completo = grupo.dropna(subset=predictores_existentes + ['PRS (µg/l)'])
+        if len(grupo_completo) < 5: continue
+        
+        X = grupo_completo[predictores_existentes]
         y = grupo_completo['PRS (µg/l)']
+        
         modelo = RandomForestRegressor(n_estimators=100, random_state=42)
         mae_modelo = -cross_val_score(modelo, X, y, scoring='neg_mean_absolute_error', cv=3).mean()
         mediana_val = y.median()
         mae_mediana = mean_absolute_error(y, [mediana_val] * len(y))
         usar_modelo = mae_modelo < mae_mediana
-        if usar_modelo:
-            modelo.fit(X, y)
+        
+        if usar_modelo: modelo.fit(X, y)
+            
         grupo_faltantes = grupo[grupo['PRS (µg/l)'].isna()]
-        grupo_pred = grupo_faltantes.dropna(subset=predictores)
+        grupo_pred = grupo_faltantes.dropna(subset=predictores_existentes)
+        
         for idx, fila in grupo_pred.iterrows():
-            X_pred = fila[predictores].values.reshape(1, -1)
+            X_pred = fila[predictores_existentes].values.reshape(1, -1)
             imputado = modelo.predict(X_pred)[0] if usar_modelo else mediana_val
             df.loc[df['id_registro'] == fila['id_registro'], 'PRS (µg/l)'] = imputado
             resultados.append({'id_registro': fila['id_registro'], 'valor_imputado': imputado, 'metodo': 'modelo' if usar_modelo else 'mediana'})
+            
     return df, pd.DataFrame(resultados)
 
 def imputar_nitrogeno(df_final):
     df = df_final.copy()
     
-    # Convertir NO3 a µg/l para imputar en la misma escala
+    # --- INICIO DE LA LÓGICA ROBUSTA ---
+
+    # 1. Chequeo inicial: Si la columna base no existe, no podemos hacer nada.
+    if 'N-NO3 (mg/l)' not in df.columns:
+        # Creamos columnas vacías para que el resto del pipeline no falle
+        # si espera estas columnas más adelante.
+        df['N-NH4 (µg/l)'] = np.nan
+        df['N-NO2 (µg/l)'] = np.nan
+        # Devolvemos el DataFrame y resultados vacíos.
+        return df, pd.DataFrame(), pd.DataFrame()
+
+    # Si la columna existe, procedemos.
     df['N-NO3 (µg/l)'] = df['N-NO3 (mg/l)'] * 1000
 
+    # 2. Selección robusta de predictores
     objetivo = ['N-NH4 (µg/l)', 'N-NO2 (µg/l)', 'N-NO3 (µg/l)']
-    variables_predictoras = ['PHT (µg/l)', 'PRS (µg/l)', 'Clorofila (µg/l)', 
-                             'Total Algas Sumatoria (Cel/L)', 'Cianobacterias Total', 'T° (°C)']
+    variables_predictoras_posibles = [
+        'PHT (µg/l)', 'PRS (µg/l)', 'Clorofila (µg/l)', 
+        'Total Algas Sumatoria (Cel/L)', 'Cianobacterias Total', 'T° (°C)'
+    ]
+    
+    # Filtramos solo los predictores que realmente existen en el DataFrame
+    variables_predictoras = [p for p in variables_predictoras_posibles if p in df.columns]
+
+    # Si no hay predictores, no podemos imputar.
+    if not variables_predictoras:
+        df['N-NO3 (mg/l)'] = df['N-NO3 (µg/l)'] / 1000
+        return df, pd.DataFrame(), pd.DataFrame()
+
+    # --- FIN DE LA LÓGICA ROBUSTA ---
 
     resultados = []
     imputaciones = []
 
+    # Iteramos solo sobre las columnas objetivo que existen
+    objetivo_existente = [v for v in objetivo if v in df.columns]
+
     for (sitio, est), grupo in df.groupby(['codigo_perfil', 'estacion']):
-        for variable in objetivo:
+        for variable in objetivo_existente:
             grupo_entrenamiento = grupo.dropna(subset=[variable] + variables_predictoras)
             if len(grupo_entrenamiento) < 5:
                 continue
@@ -380,8 +432,9 @@ def imputar_nitrogeno(df_final):
                 'error_mediana_pct': error_mediana_pct
             })
 
-    # Convertir de vuelta a mg/l
-    df['N-NO3 (mg/l)'] = df['N-NO3 (µg/l)'] / 1000
+    # Convertir de vuelta a mg/l si la columna existe
+    if 'N-NO3 (µg/l)' in df.columns:
+        df['N-NO3 (mg/l)'] = df['N-NO3 (µg/l)'] / 1000
 
     return df, pd.DataFrame(imputaciones), pd.DataFrame(resultados)
 
@@ -703,41 +756,57 @@ def _run_update():
     actualizar_df()
     _changed_tables.clear()
 
-def database_listener():
+def database_listener(stop_event=None, test_db_params=None):
     """
-    Función que corre en un hilo de fondo 24/7.
-    Se conecta a la BD y escucha notificaciones del canal 'datos_agua_actualizados'.
+    Función del listener, ahora configurable para poder usar una base de datos de prueba.
     """
-    conn_string = f"dbname='{nombre_base_datos}' user='{usuario}' password='{contraseña}' host='{host}' port='{puerto}'"
-    
+    if test_db_params:
+        # Si la prueba nos da parámetros, los usamos.
+        print(f"LISTENER: Usando parámetros de BD de prueba: {test_db_params['dbname']}")
+        conn_string = (
+            f"dbname='{test_db_params['dbname']}' "
+            f"user='{test_db_params['user']}' "
+            f"password='{test_db_params['password']}' "
+            f"host='{test_db_params['host']}' "
+            f"port='{test_db_params['port']}'"
+        )
+    else:
+        # Si no, usa los parámetros globales de producción como antes.
+        print(f"LISTENER: Usando parámetros de BD de producción: {nombre_base_datos}")
+        conn_string = f"dbname='{nombre_base_datos}' user='{usuario}' password='{contraseña}' host='{host}' port='{puerto}'"
+
+    # El resto de la función se mantiene igual, pero ahora usa el conn_string correcto.
     while True:
+        if stop_event and stop_event.is_set():
+            print("LISTENER: Evento de parada recibido, terminando hilo.")
+            break
+
         try:
             conn = psycopg2.connect(conn_string)
             conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
             print("LISTENER: Conectado a la base de datos y escuchando notificaciones...")
             
             curs = conn.cursor()
-            # El nombre del canal 'datos_agua_actualizados' DEBE COINCIDIR con el que definas en tu TRIGGER de SQL
             curs.execute("LISTEN datos_agua_actualizados;")
 
             while True:
-                # Espera eficientemente por notificaciones. Timeout de 60s para no mantener una conexión inactiva indefinidamente.
-                if select.select([conn], [], [], 60) == ([], [], []):
-                    continue # Timeout, el bucle continúa y la conexión se mantiene viva.
+                if stop_event and stop_event.is_set():
+                    break
                 
-                conn.poll() # Procesa notificaciones pendientes
+                if select.select([conn], [], [], 1) == ([], [], []):
+                    continue
+                
+                conn.poll()
                 while conn.notifies:
                     notification = conn.notifies.pop(0)
-                    tabla = notification.payload or notification.channel
-                    _changed_tables.add(tabla)
-                    print(f"LISTENER: ¡Notificación recibida en el canal '{notification.channel}'!")
-                    _schedule_update()    
+                    logging.info(f"LISTENER: Notificación recibida en '{notification.channel}'")
+                    actualizar_df() # Llamamos a la función de actualización
 
         except (psycopg2.OperationalError, psycopg2.InterfaceError) as e:
-            print(f"LISTENER: Error de conexión: {e}. Reconectando en 30 segundos...")
+            logging.warning(f"LISTENER: Error de conexión: {e}. Reconectando en 5 segundos...")
             time.sleep(30)
         except Exception as e:
-            print(f"LISTENER: Ocurrió un error inesperado: {e}. Intentando reiniciar en 30 segundos...")
+            logging.error(f"LISTENER: Ocurrió un error inesperado: {e}. Reiniciando en 5 segundos...")
             time.sleep(30)
 
 def actualizar_df():
@@ -929,7 +998,7 @@ def get_options():
     try:
         query = "SELECT DISTINCT codigo_perfil FROM vistaconjunto"
         df = pd.read_sql(query, engine)
-        options = df['codigo_perfil'].dropna().tolist()
+        options = df['codigo_perfil'].dropna().unique().tolist()
         return jsonify(options)
     except Exception as e:
         return jsonify({'error': str(e)})
