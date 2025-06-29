@@ -7,10 +7,11 @@ import { BrowserRouter as Router, Route, Routes, useNavigate } from 'react-route
 import axios from 'axios';
 import './App.css';
 import logo from './logo.png';
+import AboutPage from './AboutPage';
 
 
 // Componente de pantalla de inicio
-function Home({ onPredictStart, onDataStart, onPredictionsStart }) {
+function Home({ onPredictStart, onDataStart, onPredictionsStart, onAboutStart }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
       <img src={logo} alt="Logo" className="logo1" />
@@ -19,6 +20,7 @@ function Home({ onPredictStart, onDataStart, onPredictionsStart }) {
         <button onClick={onPredictStart} className="primary-button">Predecir</button>
         <button onClick={onDataStart} className="primary-button">Ver Datos</button>
         <button onClick={onPredictionsStart} className="primary-button">Ver Predicciones</button>
+        <button onClick={onAboutStart} className="secondary-button">Acerca del Modelo</button>
       </div>
     </div>
   );
@@ -142,7 +144,7 @@ export function Predict() {
       return updatedResults;
     });
   };
-
+  
   // Encontramos el objeto del resultado activo para no repetir la búsqueda en el JSX
   const activeResult = activeTab ? predictionResult.find(result => result.option === activeTab) : null;
 
@@ -217,6 +219,7 @@ export function Predict() {
     </div>
   );
 }
+
 
 
 function Datos() {
@@ -546,6 +549,9 @@ function Predicciones() {
   );
 }
 
+
+
+
 export function formatDate(dateString) {
   if (!dateString) return '-'
   // Sólo aceptamos strings tipo 4 dígitos-2 dígitos-2 dígitos
@@ -573,13 +579,18 @@ function App() {
     navigate('/predicciones');
   };
 
+  const handleAboutStart = () => {
+    navigate('/about');
+  };
+  
   return (
     <div className="App">
       <Routes>
-        <Route path="/" element={<Home onPredictStart={handlePredictStart} onDataStart={handleDataStart} onPredictionsStart={handlePredictionsStart} />} />
+        <Route path="/" element={<Home onPredictStart={handlePredictStart} onDataStart={handleDataStart} onPredictionsStart={handlePredictionsStart} onAboutStart={handleAboutStart}/>} />
         <Route path="/predict" element={<Predict />} />
         <Route path="/datos" element={<Datos />} />
         <Route path="/predicciones" element={<Predicciones />} />
+        <Route path="/about" element={<AboutPage />} />
       </Routes>
     </div>
   );

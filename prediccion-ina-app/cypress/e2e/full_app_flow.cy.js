@@ -3,7 +3,7 @@ describe('Flujo Principal de la Aplicación', () => {
     it('debería permitir al usuario navegar, hacer una predicción y ver los resultados', () => {
       
       // CAMBIO CLAVE AQUÍ: Usamos un patrón glob más robusto.
-      cy.intercept('POST', '**/http://localhost:5001/predict', {
+      cy.intercept('POST', '**/api/predict', {
         statusCode: 200,
         body: [{
           codigo_perfil: 'C1',

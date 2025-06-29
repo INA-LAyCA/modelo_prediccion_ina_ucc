@@ -1,0 +1,131 @@
+/* AboutPage.css */
+
+.about-container {
+    padding: 2rem 4rem;
+    max-width: 960px;
+    margin: 0 auto;
+    font-family: 'Inter', sans-serif;
+    color: #333;
+  }
+  
+  .about-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 2.5rem;
+    border-bottom: 1px solid #e0e0e0;
+    padding-bottom: 1.5rem;
+  }
+  
+  .about-title {
+    font-size: 2.5rem;
+    color: #1a2c4e; /* Un azul corporativo oscuro */
+    margin: 0;
+    margin-left: 1.5rem;
+    font-weight: 700;
+  }
+  
+  .about-content {
+    display: grid;
+    gap: 2rem;
+  }
+  
+  .about-card {
+    background-color: #ffffff;
+    border-radius: 12px;
+    padding: 2rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+  }
+  
+  .about-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  }
+  
+  .card-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 1rem;
+  }
+  
+  .card-header h2 {
+    font-size: 1.75rem;
+    margin: 0;
+    color: #1a2c4e;
+  }
+  
+  .icon-container {
+    background-color: #e8f0fe; /* Un azul muy claro */
+    color: #3b74d9; /* Azul principal */
+    border-radius: 50%;
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 1rem;
+    flex-shrink: 0;
+  }
+  
+  .about-card p, .about-card li {
+    font-size: 1rem;
+    line-height: 1.6;
+    color: #555;
+  }
+  
+  .about-card ul {
+    padding-left: 20px;
+    margin-top: 1rem;
+  }
+  
+  .about-card li {
+    margin-bottom: 0.5rem;
+  }
+  
+  .about-card h4 {
+    font-size: 1.2rem;
+    color: #1a2c4e;
+    margin-top: 1.5rem;
+    margin-bottom: 0.5rem;
+    border-left: 3px solid #3b74d9;
+    padding-left: 10px;
+  }
+  
+  /* Estilos para la leyenda del semáforo */
+  .legend {
+    margin-top: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  
+  .legend-item {
+    display: flex;
+    align-items: center;
+  }
+  
+  .legend-color {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    margin-right: 10px;
+    flex-shrink: 0;
+  }
+  
+  .legend-color.green { background-color: #28a745; }
+  .legend-color.yellow { background-color: #ffc107; }
+  .legend-color.red { background-color: #dc3545; }
+  
+  /* Responsive Design */
+  @media (max-width: 768px) {
+    .about-container {
+      padding: 1.5rem;
+    }
+    .about-title {
+      font-size: 2rem;
+    }
+    .card-header h2 {
+      font-size: 1.5rem;
+    }
+  }
+  
