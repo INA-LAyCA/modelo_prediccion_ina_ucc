@@ -20,7 +20,7 @@ function Home({ onPredictStart, onDataStart, onPredictionsStart, onAboutStart })
         <button onClick={onPredictStart} className="primary-button">Predecir</button>
         <button onClick={onDataStart} className="primary-button">Ver Datos</button>
         <button onClick={onPredictionsStart} className="primary-button">Ver Predicciones</button>
-        <button onClick={onAboutStart} className="secondary-button">Acerca del Modelo</button>
+        <button onClick={onAboutStart} className="primary-button">Acerca del Modelo</button>
       </div>
     </div>
   );
@@ -553,13 +553,29 @@ function Predicciones() {
 
 
 export function formatDate(dateString) {
-  if (!dateString) return '-'
-  // Sólo aceptamos strings tipo 4 dígitos-2 dígitos-2 dígitos
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
-    return 'Fecha inválida'
+  // Primero, comprueba si el string de fecha es nulo o inválido
+  if (!dateString) {
+    return '-';
   }
-  const [year, month, day] = dateString.split('-')
-  return `${day}/${month}/${year}`
+
+  // Crea un objeto de fecha a partir del string.
+  // El constructor de Date() es muy bueno para interpretar formatos estándar como el que recibes.
+  const date = new Date(dateString);
+
+  // Verifica si el objeto de fecha es válido. Si el string no se pudo interpretar,
+  // date.getTime() devolverá NaN (Not-a-Number).
+  if (isNaN(date.getTime())) {
+    return 'Fecha inválida';
+  }
+
+  // Obtiene el día, mes y año de la fecha.
+  // Usamos +1 en el mes porque getMonth() devuelve los meses de 0 a 11.
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = date.getFullYear();
+
+  // Devuelve la fecha en el formato DD/MM/YYYY
+  return `${day}/${month}/${year}`;
 }
 
 
@@ -582,7 +598,7 @@ function App() {
   const handleAboutStart = () => {
     navigate('/about');
   };
-  
+
   return (
     <div className="App">
       <Routes>
