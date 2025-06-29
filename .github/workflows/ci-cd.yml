@@ -1,0 +1,103 @@
+# Nombre del workflow que aparecerá en la pestaña "Actions" de GitHub
+name: Pipeline de CI/CD Final
+
+# Disparadores: Se ejecuta al hacer push o pull request a la rama 'main'
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+# Definición de los trabajos (jobs) a ejecutar
+jobs:
+  # --- TRABAJO 1: CORRER TODAS LAS PRUEBAS ---
+  test:
+    name: ✅ Validar y Probar
+    runs-on: ubuntu-latest
+    steps:
+      # 1. Descarga el código del repositorio a la máquina virtual
+      - name: Checkout del código
+        uses: actions/checkout@v4
+
+      # 2. Configura el entorno de Python
+      - name: Configurar Python 3.12
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+
+      # 3. Instala las dependencias del backend
+      - name: Instalar dependencias del Backend
+        run: pip install -r requirements.txt
+      
+      # 4. Instala las dependencias del frontend
+      - name: Instalar dependencias del Frontend
+        run: |
+          cd frontend
+          npm install
+
+      # 5. Levanta la Base de Datos de Prueba para Pytest
+      - name: Levantar servicios de prueba
+        run: docker-compose -f docker-compose.test.yml up -d
+
+      # 6. Corre las pruebas del backend con Pytest
+      - name: Correr pruebas de Backend (Pytest)
+        run: pytest
+      
+      # 7. Corre las pruebas unitarias del frontend con Jest
+      - name: Correr pruebas Unitarias (Jest)
+        run: |
+          cd frontend
+          npm test -- --watchAll=false
+      
+      # 8. Inicia el backend para las pruebas E2E
+      # Lo corremos en segundo plano para que el siguiente paso pueda ejecutarse
+      - name: Iniciar Backend en segundo plano
+        run: python backend.py &
+
+      # 9. Corre las pruebas End-to-End con Cypress
+      - name: Correr pruebas End-to-End (Cypress)
+        run: |
+          cd frontend
+          npm run test:e2e
+
+      # 10. Apaga los servicios de prueba (se ejecuta siempre)
+      # Este paso es crucial para limpiar los recursos de Docker.
+      - name: Apagar servicios de prueba
+        if: always()
+        run: docker-compose -f docker-compose.test.yml down
+
+  # --- TRABAJO 2: CONSTRUIR Y PUBLICAR IMÁGENES ---
+  build-and-push:
+    name: 📦 Construir y Publicar Imágenes
+    # Solo se ejecuta si el trabajo 'test' fue exitoso
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      # 1. Descarga el código del repositorio
+      - name: Checkout del código
+        uses: actions/checkout@v4
+
+      # 2. Inicia sesión en Docker Hub
+      # Usa los secretos que configurarás en tu repositorio de GitHub
+      - name: Iniciar sesión en Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      # 3. Construye las imágenes de producción usando el docker-compose principal
+      - name: Construir imágenes de Docker
+        run: docker-compose -f docker-compose.yml build
+
+      # 4. Etiqueta (Tag) las imágenes para subirlas a Docker Hub
+      # RECUERDA REEMPLAZAR 'tu-usuario' con tu nombre de usuario real de Docker Hub
+      - name: Etiquetar imágenes
+        run: |
+          docker tag mi_app_backend tu-usuario/mi-app-backend:latest
+          docker tag mi_app_frontend tu-usuario/mi-app-frontend:latest
+      
+      # 5. Empuja (Push) las imágenes al registro de Docker Hub
+      - name: Publicar imágenes en Docker Hub
+        run: |
+          docker push tu-usuario/mi-app-backend:latest
+          docker push tu-usuario/mi-app-frontend:latest
