@@ -10,6 +10,7 @@ services:
     # en el directorio actual (la raíz del proyecto) para construir esta imagen.
     build: .
     # Le damos un nombre al contenedor para identificarlo fácilmente
+    image: mi_app_backend:latest
     container_name: mi_app_backend
     # Opcional: Mapea el puerto para poder acceder al backend directamente
     # desde el servidor si fuera necesario para depuración.
@@ -23,6 +24,7 @@ services:
   frontend:
     # Busca el Dockerfile en la carpeta './frontend' para construir esta imagen.
     build: ./prediccion-ina-app
+    image: mi_app_frontend:latest
     container_name: mi_app_frontend
     # Mapea el puerto 80 del contenedor (donde escucha Nginx) al puerto 3000
     # del servidor. Los usuarios accederán a la app a través de la IP_DEL_SERVIDOR:3000
