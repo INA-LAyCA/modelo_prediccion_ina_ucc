@@ -25,12 +25,6 @@ porsi.py
 porsinofunciona.py
 tf2.py
 
-
-# # Carpetas y Archivos de Machine Learning
-# ¡MUY IMPORTANTE! Ignorar la carpeta donde se guardan los modelos entrenados.
-# Estos archivos pueden ser muy grandes y no son parte del código fuente.
-modelos_entrenados/
-
 # Ignorar el directorio temporal que usa KerasTuner para sus pruebas.
 keras_tuner_dir/
 
