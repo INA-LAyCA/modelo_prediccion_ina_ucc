@@ -13,7 +13,6 @@ from sqlalchemy import create_engine
 from sqlalchemy import text
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from flask_socketio import SocketIO
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_absolute_error
 from sklearn.model_selection import cross_val_score

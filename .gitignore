@@ -33,3 +33,4 @@ keras_tuner_dir/
 *.numbers
 
 
+/modelos_entrenados

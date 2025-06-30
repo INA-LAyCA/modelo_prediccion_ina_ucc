@@ -15,6 +15,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copia todo el resto del código del proyecto al directorio de trabajo
 COPY . .
 
+
 # Expone el puerto en el que Flask se ejecuta dentro del contenedor
 EXPOSE 5001
 
