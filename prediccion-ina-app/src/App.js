@@ -558,26 +558,23 @@ export function formatDate(dateString) {
     return '-';
   }
 
-  // Expresión regular para validar el formato YYYY-MM-DD al inicio del string.
-  const regex = /^\d{4}-\d{2}-\d{2}/;
+  // Intenta crear un objeto de fecha. El constructor de Date es bastante flexible.
+  const date = new Date(dateString);
 
-  // Si el string no coincide con el formato, es inválido.
-  if (!regex.test(dateString)) {
+  // Verifica si el objeto de fecha es válido.
+  if (isNaN(date.getTime())) {
     return 'Fecha inválida';
   }
 
-  // Ahora que sabemos que el formato es correcto, procesamos con seguridad.
-  const datePart = dateString.split('T')[0]; // Tomamos solo la parte de la fecha
-  const parts = datePart.split('-');
-  
-  const year = parts[0];
-  const month = parts[1];
-  const day = parts[2];
+  // Para evitar problemas de zona horaria (timezone), en lugar de .getDate(), .getMonth(), etc.,
+  // usamos los métodos UTC que siempre se refieren al Tiempo Universal Coordinado.
+  // Esto previene que la fecha cambie al día anterior/posterior.
+  const day = String(date.getUTCDate()).padStart(2, '0');
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0'); // getUTCMonth es 0-11
+  const year = date.getUTCFullYear();
 
   return `${day}/${month}/${year}`;
 }
-
-
 // Componente de la aplicación principal
 function App() {
   const navigate = useNavigate();
