@@ -39,7 +39,7 @@ function AboutPage() {
             <h2>¿Qué es este Modelo?</h2>
           </div>
           <p>
-            Este sistema es una herramienta de <strong>alerta temprana</strong> desarrollada por el Instituto Nacional del Agua (INA-CIRSA) para el monitoreo y predicción de la calidad del agua en puntos estratégicos de los embalses.
+            Este sistema es una herramienta de <strong>alerta temprana</strong> desarrollada para el Instituto Nacional del Agua (INA-CIRSA) para el monitoreo y predicción de la calidad del agua en puntos estratégicos de los embalses.
           </p>
           <p>
             Su objetivo principal es <strong>anticipar con un mes de antelación</strong> la probabilidad de que ocurran eventos que comprometan la calidad del recurso hídrico, tales como floraciones de algas, altos niveles de clorofila o una dominancia de cianobacterias, un tipo de microalga de especial interés sanitario.
@@ -73,12 +73,34 @@ function AboutPage() {
             El modelo clasifica el riesgo futuro en tres niveles de alerta, siguiendo un esquema de semáforo:
           </p>
           <div className="legend">
-            <div className="legend-item"><span className="legend-color green"></span><strong>Vigilancia:</strong> Condiciones normales. Se recomienda el monitoreo de rutina.</div>
-            <div className="legend-item"><span className="legend-color yellow"></span><strong>Alerta:</strong> Se prevé que los parámetros superen los umbrales recomendados. Requiere un aumento en la frecuencia de monitoreo y preparación para posibles acciones.</div>
-            <div className="legend-item"><span className="legend-color red"></span><strong>Emergencia:</strong> Se pronostica que los niveles superarán umbrales críticos, con alta probabilidad de una floración algal intensa. Requiere acciones inmediatas.</div>
+              {/* Item Vigilancia */}
+              <div className="legend-item">
+                <span className="legend-color green"></span>
+                <div className="legend-text">
+                  <strong>Vigilancia:</strong> Condiciones normales. Se recomienda el monitoreo de rutina.
+                </div>
+              </div>
+
+              {/* Item Alerta */}
+              <div className="legend-item">
+                <span className="legend-color yellow"></span>
+                <div className="legend-text">
+                  <strong>Alerta:</strong> Se prevé que los parámetros superen los umbrales recomendados. Requiere un aumento en la frecuencia de monitoreo y preparación para posibles acciones.
+                </div>
+              </div>
+
+              {/* Item Emergencia */}
+              <div className="legend-item">
+                <span className="legend-color red"></span>
+                <div className="legend-text">
+                  <strong>Emergencia:</strong> Se pronostica que los niveles superarán umbrales críticos, con alta probabilidad de una floración algal intensa. Requiere acciones inmediatas.
+                </div>
+              </div>
+            </div>
           </div>
         </div>
-
+        <div className="legend">
+        </div>
         <div className="about-card">
           <div className="card-header">
             <Icon><MetricsIcon /></Icon>
@@ -97,7 +119,6 @@ function AboutPage() {
           </p>
         </div>
       </div>
-    </div>
   );
 }
 

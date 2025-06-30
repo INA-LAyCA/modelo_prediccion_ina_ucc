@@ -352,4 +352,48 @@ td {
   margin-right: 15px;
 }
 
+.legend {
+  /* Ajusta este valor según tu preferencia */
+  /* Un valor entre 16px y 24px suele funcionar bien. */
+  margin-top: 20px;
+}
+/* Contenedor principal de cada línea de la leyenda */
+.legend-item {
+  display: flex; /* Activa Flexbox */
+  align-items: flex-start; /* CRÍTICO: Alinea la parte superior del círculo con la parte superior del bloque de texto */
+  margin-bottom: 1px; /* Aumenté un poco el espacio para que se vea más limpio */
+  line-height: 1.5;    /* Establece una altura de línea consistente para el texto */
+}
 
+/* Círculo de color */
+.legend-color {
+  width: 16px;
+  height: 1px;
+  border-radius: 50%;
+  margin-right: 12px; /* Un poco más de espacio */
+  flex-shrink: 0;
+
+  /* --- LA CLAVE ESTÁ AQUÍ --- */
+  /* Este margen empuja el círculo hacia abajo para centrarlo con la primera línea de texto.
+     Se calcula aproximadamente como: (altura de línea del texto - altura del círculo) / 2.
+     Si tu line-height es 1.5 y el font-size es 16px, la altura de línea es 24px.
+     Entonces: (24px - 16px) / 2 = 4px.
+  */
+  margin-top: 1px;
+}
+
+/* Título en negrita */
+.legend-text strong {
+  margin-right: 6px;
+}
+
+/* --- Colores (sin cambios) --- */
+.legend-color.green {
+  background-color: #28a745;
+}
+.legend-color.yellow {
+  background-color: #ffc107;
+}
+.legend-color.red {
+  background-color: #dc3545;
+}

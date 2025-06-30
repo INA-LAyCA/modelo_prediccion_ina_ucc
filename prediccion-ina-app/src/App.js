@@ -10,6 +10,7 @@ import logo from './logo.png';
 import AboutPage from './AboutPage';
 
 
+
 // Componente de pantalla de inicio
 function Home({ onPredictStart, onDataStart, onPredictionsStart, onAboutStart }) {
   return (
@@ -210,7 +211,7 @@ export function Predict() {
               <ul>
                 <PredictionDetails targetName="Clorofila" data={activeResult.Clorofila} />
                 <PredictionDetails targetName="Cianobacterias" data={activeResult.Cianobacterias} />
-                <PredictionDetails targetName="Dominancia" data={activeResult.Dominancia} />
+                <PredictionDetails targetName="Dominancia de Cianobacterias" data={activeResult.Dominancia} />
               </ul>
             </div>
           )}
@@ -323,7 +324,7 @@ function Datos() {
     <div className="container">
       <div className="page-header">
         <button onClick={() => navigate('/')} className="back-button">&larr;</button>
-        <h2>Datos del DataFrame Procesado</h2>
+        <h2>Tabla de Datos Procesados</h2>
       </div>
       
       <div className="filters-container">
@@ -549,32 +550,27 @@ function Predicciones() {
   );
 }
 
-
-
-
 export function formatDate(dateString) {
-  // Primero, comprueba si el string de fecha es nulo o inválido
   if (!dateString) {
     return '-';
   }
 
-  // Crea un objeto de fecha a partir del string.
-  // El constructor de Date() es muy bueno para interpretar formatos estándar como el que recibes.
-  const date = new Date(dateString);
+  // Expresión regular para validar el formato YYYY-MM-DD al inicio del string.
+  const regex = /^\d{4}-\d{2}-\d{2}/;
 
-  // Verifica si el objeto de fecha es válido. Si el string no se pudo interpretar,
-  // date.getTime() devolverá NaN (Not-a-Number).
-  if (isNaN(date.getTime())) {
+  // Si el string no coincide con el formato, es inválido.
+  if (!regex.test(dateString)) {
     return 'Fecha inválida';
   }
 
-  // Obtiene el día, mes y año de la fecha.
-  // Usamos +1 en el mes porque getMonth() devuelve los meses de 0 a 11.
-  const day = String(date.getDate()).padStart(2, '0');
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const year = date.getFullYear();
+  // Ahora que sabemos que el formato es correcto, procesamos con seguridad.
+  const datePart = dateString.split('T')[0]; // Tomamos solo la parte de la fecha
+  const parts = datePart.split('-');
+  
+  const year = parts[0];
+  const month = parts[1];
+  const day = parts[2];
 
-  // Devuelve la fecha en el formato DD/MM/YYYY
   return `${day}/${month}/${year}`;
 }
 
@@ -612,10 +608,61 @@ function App() {
   );
 }
 
+function RetrainingOverlay() {
+  const overlayStyle = {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    width: '100%',
+    height: '100%',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    color: 'white',
+    fontSize: '24px',
+    zIndex: 9999,
+    fontFamily: 'Arial, sans-serif',
+  };
+
+  return (
+    <div style={overlayStyle}>
+      <p>Espere, los modelos están siendo actualizados y reentrenados...</p>
+    </div>
+  );
+}
+
+
 // Componente raíz con Router
 function AppRoot() {
+  const [isRetraining, setIsRetraining] = useState(false);
+
+  // --- REEMPLAZA TU useEffect DE WEBSOCKETS CON ESTE ---
+  useEffect(() => {
+    const checkStatus = async () => {
+      try {
+        const response = await axios.get('/api/status');
+        const isCurrentlyRetraining = response.data.status === 'retraining';
+        
+        setIsRetraining(isCurrentlyRetraining);
+      } catch (error) {
+        console.error("Error al consultar el estado del backend:", error);
+      }
+    };
+
+    checkStatus();
+    const intervalId = setInterval(checkStatus, 3000);
+
+    // Función de limpieza: es MUY IMPORTANTE limpiar el intervalo
+    // cuando el componente se desmonta para evitar fugas de memoria.
+    return () => {
+      clearInterval(intervalId);
+    };
+  },[]);
+
   return (
     <Router>
+      {isRetraining && <RetrainingOverlay />}
       <App />
     </Router>
   );

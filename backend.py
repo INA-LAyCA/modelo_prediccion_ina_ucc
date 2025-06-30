@@ -13,6 +13,7 @@ from sqlalchemy import create_engine
 from sqlalchemy import text
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+from flask_socketio import SocketIO
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_absolute_error
 from sklearn.model_selection import cross_val_score
@@ -43,10 +44,8 @@ engine3 = create_engine(f'postgresql+psycopg2://{usuario}:{contraseña}@{host2}:
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-def print_debug_cols(step_name, df):
-    print(f"\n--- [DEBUG] Columnas en el paso: {step_name} ---")
-    print(df.columns.tolist())
-    print("-" * 50)
+APP_STATUS = {'is_retraining': False}
+status_lock = threading.Lock()
 
 # Función para obtener y procesar el DataFrame
 def obtener_dataframe():
@@ -62,8 +61,7 @@ def obtener_dataframe():
     
     df_pivot = df.pivot_table(index='id_registro', columns='parametro', values='valor_parametro', aggfunc='first').reset_index()
     df_final = pd.merge(df_base, df_pivot, on='id_registro', how='left')
-    print_debug_cols("Después del Merge Inicial", df_final)
-
+    
     cols_cianobact = ['Anabaena', 'Anabaenopsis', 'Aphanizomenon', 'Aphanocapsa', 'Aphanothece', 'Geitlerinema', 'Merismopedia', 'Chroococcus', 'Nostoc', 'Microcystis', 'Oscillatoria', 'Phormidium', 'Planktothrix', 'Pseudoanabaena', 'Raphydiopsis', 'Romeria', 'Spirulina', 'Dolichospermum', 'Leptolyngbya', 'Synechococcus']
     
     # Lógica robusta para cianobacterias
@@ -73,8 +71,7 @@ def obtener_dataframe():
         df_final.drop(columns=cols_cianobact_presentes, inplace=True)
     else:
         df_final['Cianobacterias Total'] = np.nan
-    print_debug_cols("Después de procesar Cianobacterias", df_final)
-
+    
     df_final['fecha'] = pd.to_datetime(df_final['fecha'], format='%Y-%m-%d', errors='coerce')
     df_final.dropna(subset=['fecha'], inplace=True)
     df_final = df_final[df_final['fecha'] >= pd.Timestamp('1999-07-24')]
@@ -84,14 +81,12 @@ def obtener_dataframe():
 
     #Selección de mejores fechas y eliminacion de duplicados
     df_final = seleccionar_medicion_mensual(df_final)
-    print_debug_cols("Después de seleccionar medición mensual", df_final)
     
     #Imputar condicion termica
     df_final=condicion_termica(df_final, engine)
 
     #Union temperatura del aire
     df_final=union_temperatura_aire (df_final, engine2)
-    print_debug_cols("Después de unir Temperatura Aire", df_final)
     
     df_final['fecha'] = pd.to_datetime(df_final['fecha'], errors='coerce') # Re-asegurar por si acaso
 
@@ -112,13 +107,9 @@ def obtener_dataframe():
 
     # --- Ejecución principal ---
     df_final, _ = imputacion_clorofila(df_final)
-    print_debug_cols("Después de imputar Clorofila", df_final)
     df_final, _ = imputar_pht(df_final)
-    print_debug_cols("Después de imputar Clorofila", df_final)
     df_final, _ = imputar_prs(df_final)
-    print_debug_cols("Después de imputar Clorofila", df_final)
     df_final, resultado_imputaciones, resultados_nitrogeno = imputar_nitrogeno(df_final)
-    print_debug_cols("Después de imputar Clorofila", df_final)
     # Cálculo de Nitrogeno Inorganico Total
     # Esta suma usa 'N-NH4 (µg/l)', 'N-NO2 (µg/l)' y 'N-NO3 (mg/l)'
     df_final['Nitrogeno Inorganico Total (µg/l)'] = df_final.apply(
@@ -126,8 +117,7 @@ def obtener_dataframe():
         else row['N-NH4 (µg/l)'] + row['N-NO2 (µg/l)'] + (row['N-NO3 (mg/l)'] * 1000),
         axis=1
     )
-    print_debug_cols("Después de imputar Clorofila", df_final)
-
+    
     #Eliminar las columnas de nitrógeno individuales (incluyendo N-NO3 (mg/l)) ---
     # CÓDIGO NUEVO Y ROBUSTO
     columnas_nitrogeno_a_eliminar = [
@@ -145,10 +135,8 @@ def obtener_dataframe():
 # Elimina únicamente las columnas que existen
     if columnas_existentes_para_eliminar:
         df_final.drop(columns=columnas_existentes_para_eliminar, inplace=True)
-    print_debug_cols("Después de imputar Clorofila", df_final)
     if 'Cianobacterias Total' in df_final.columns and 'Total Algas Sumatoria (Cel/L)' in df_final.columns:
         df_final['Dominancia de Cianobacterias (%)'] = (df_final['Cianobacterias Total'] * 100) / df_final['Total Algas Sumatoria (Cel/L)']
-        print_debug_cols("Después de imputar Clorofila", df_final)
     else:
         df_final['Dominancia de Cianobacterias (%)'] = np.nandf_final.loc[
     
@@ -156,10 +144,8 @@ def obtener_dataframe():
     'condicion_termica'
     ] = 'SD'
         
-    print_debug_cols("Después de imputar Clorofila", df_final)
     df_final=union_precipitacion(df_final, engine2)
-    print_debug_cols("Después de imputar Clorofila", df_final)
-
+    
     return df_final
 
 # --- Funciones Auxiliares de Procesamiento ---
@@ -816,8 +802,10 @@ def actualizar_df():
     """
     # with app.app_context() es una buena práctica para que el hilo
     # tenga acceso al contexto de la aplicación si fuera necesario.
+    
     with app.app_context():
         print("WORKER: Iniciando `generar_dataframe_procesado()`...")
+        global APP_STATUS
         with proceso_lock:
             if proceso_status["running"]:
                 print("WORKER: Ya hay un proceso en curso, saliendo.")
@@ -825,6 +813,8 @@ def actualizar_df():
             proceso_status["running"] = True
 
         try:
+            with status_lock:
+                APP_STATUS['is_retraining'] = True
             df_procesado = obtener_dataframe()
 
             if df_procesado is not None and not df_procesado.empty:
@@ -846,6 +836,8 @@ def actualizar_df():
         except Exception as e:
             print(f"WORKER: ERROR en el proceso de actualización en segundo plano: {e}")
         finally:
+            with status_lock:
+                APP_STATUS['is_retraining'] = False
             with proceso_lock:
                 proceso_status["running"] = False
                 proceso_status["message"] = "Inactivo"
@@ -992,6 +984,18 @@ def guardar_prediccion_historica(codigo_perfil, fecha_prediccion, target, clase_
 
 # ENDPOINTS:
 
+@app.route('/status', methods=['GET'])
+def get_status():
+    """
+    Endpoint simple para que el frontend pueda consultar el estado del reentrenamiento.
+    """
+    with status_lock:
+        is_retraining = APP_STATUS.get('is_retraining', False)
+    
+    status = "retraining" if is_retraining else "idle"
+    
+    return jsonify({'status': status})
+
 # Consulta a la base de datos para obtener los valores de 'codigo_perfil' para el menu desplegable     
 @app.route('/get-options', methods=['GET'])
 def get_options():
@@ -1045,7 +1049,7 @@ def ver_predicciones():
         # Devolver una respuesta de error JSON válida
         return jsonify({'error': 'No se pudieron obtener los datos del servidor.'}), 500
 
-#opcion de actualización forzada, no implementada en front
+#opcion de actualización forzada, no implementada
 @app.route('/actualizar', methods=['POST'])
 def ejecutar_actualizacion():
     print("Solicitud a /actualizar recibida. Iniciando hilo de procesamiento manual...")

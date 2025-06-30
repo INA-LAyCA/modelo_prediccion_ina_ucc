@@ -49,7 +49,7 @@ describe('Flujo Principal de la Aplicación', () => {
       cy.contains('button', 'Ver Datos').click();
   
       cy.url().should('include', '/datos');
-      cy.contains('h2', 'Datos del DataFrame Procesado');
+      cy.contains('h2', 'Tabla de Datos Procesado');
       
       cy.visit('http://localhost:3000');
   
