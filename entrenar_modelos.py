@@ -14,7 +14,7 @@ import keras_tuner as kt
 import warnings
 import os
 import io
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 import joblib
 
 # Configuración de conexión a BD para entrenamiento
@@ -389,6 +389,48 @@ def seleccionar_mejor_modelo(df_results, sitio, objetivo):
     best_model_row = df_results.loc[df_results['f1_macro_cv'].idxmax()]
     return best_model_row
 
+def guardar_metricas_entrenamiento(sitio, target, model_info):
+    """
+    Inserta las métricas de una ejecución de entrenamiento en la tabla histórica.
+    (Versión corregida para manejar tipos de datos de NumPy)
+    """
+    sql = text("""
+    INSERT INTO entrenamientos_historicos
+        (sitio, variable_objetivo, modelo_usado, f1_score_cv, roc_auc_cv, hiperparametros)
+    VALUES
+        (:sitio, :variable_objetivo, :modelo_usado, :f1_score_cv, :roc_auc_cv, :hiperparametros)
+    """)
+
+    # --- INICIO DE LA CORRECCIÓN ---
+    
+    # 1. Obtenemos las métricas del diccionario de información del modelo.
+    f1_score_np = model_info.get('f1_macro_cv')
+    roc_auc_np = model_info.get('roc_auc_cv')
+
+    # 2. Convertimos los tipos de NumPy a tipos nativos de Python.
+    #    Si el valor es NaN, lo convertimos a None para que la BD lo guarde como NULL.
+    f1_score_py = float(f1_score_np) if pd.notna(f1_score_np) else None
+    roc_auc_py = float(roc_auc_np) if pd.notna(roc_auc_np) else None
+
+    # 3. Construimos el diccionario de parámetros con los valores ya convertidos.
+    params = {
+        'sitio': sitio,
+        'variable_objetivo': target,
+        'modelo_usado': model_info.get('modelo', 'N/D'),
+        'f1_score_cv': f1_score_py,   # <-- Usamos el valor Python
+        'roc_auc_cv': roc_auc_py,     # <-- Usamos el valor Python
+        'hiperparametros': str(model_info.get('best_params', {}))
+    }
+    # --- FIN DE LA CORRECCIÓN ---
+    
+    try:
+        with engine3.connect() as conn:
+            conn.execute(sql, params)
+            conn.commit()
+        print(f"Métricas para {sitio}-{target} guardadas en el historial.")
+    except Exception as e:
+        print(f"ERROR al guardar métricas para {sitio}-{target}: {e}")
+
 # --- 4. Función Principal de Ejecución ---
 def main():
     """
@@ -480,6 +522,8 @@ def main():
             
             print(f"💾 Entrenando y guardando el mejor modelo: {model_name} (F1-Score CV: {best_row['f1_macro_cv']:.4f})")
             print(f"  -> Mejor modelo: {model_name} (F1-Score CV: {best_row['f1_macro_cv']:.4f})")
+
+            guardar_metricas_entrenamiento(sitio=sitio, target=target_key, model_info=best_row)
 
             final_model = None
             scaler = StandardScaler().fit(X_sel)

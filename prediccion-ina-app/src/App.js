@@ -8,11 +8,12 @@ import axios from 'axios';
 import './App.css';
 import logo from './logo.png';
 import AboutPage from './AboutPage';
+import ModelMonitor from './ModelMonitor';
 
 
 
 // Componente de pantalla de inicio
-function Home({ onPredictStart, onDataStart, onPredictionsStart, onAboutStart }) {
+function Home({ onPredictStart, onDataStart, onPredictionsStart, onAboutStart, onMonitorStart }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
       <img src={logo} alt="Logo" className="logo1" />
@@ -22,6 +23,8 @@ function Home({ onPredictStart, onDataStart, onPredictionsStart, onAboutStart })
         <button onClick={onDataStart} className="primary-button">Ver Datos</button>
         <button onClick={onPredictionsStart} className="primary-button">Ver Predicciones</button>
         <button onClick={onAboutStart} className="primary-button">Acerca del Modelo</button>
+        <button onClick={onMonitorStart} className="primary-button">Monitorear Modelos</button>
+        
       </div>
     </div>
   );
@@ -594,19 +597,23 @@ function App() {
   const handleAboutStart = () => {
     navigate('/about');
   };
+  const handleMonitorStart = () => navigate('/monitor');
 
   return (
     <div className="App">
       <Routes>
-        <Route path="/" element={<Home onPredictStart={handlePredictStart} onDataStart={handleDataStart} onPredictionsStart={handlePredictionsStart} onAboutStart={handleAboutStart}/>} />
+        <Route path="/" element={<Home onPredictStart={handlePredictStart} onDataStart={handleDataStart} onPredictionsStart={handlePredictionsStart} onAboutStart={handleAboutStart} onMonitorStart={handleMonitorStart}/>} />
         <Route path="/predict" element={<Predict />} />
         <Route path="/datos" element={<Datos />} />
         <Route path="/predicciones" element={<Predicciones />} />
         <Route path="/about" element={<AboutPage />} />
+        <Route path="/monitor" element={<ModelMonitor />} />
       </Routes>
     </div>
   );
 }
+
+
 
 function RetrainingOverlay() {
   const overlayStyle = {

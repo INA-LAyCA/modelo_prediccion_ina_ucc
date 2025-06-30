@@ -1071,11 +1071,47 @@ def predict():
         out.append(hacer_prediccion_para_sitio(s))
     return jsonify(out)
 
+
+@app.route('/metricas-historicas', methods=['GET'])
+def get_metricas_historicas():
+    """
+    Devuelve todo el historial de métricas de entrenamiento.
+    """
+    try:
+        # Ordenamos por fecha para que el gráfico tenga sentido cronológico
+        query = "SELECT * FROM entrenamientos_historicos ORDER BY timestamp_entrenamiento ASC"
+        df = pd.read_sql(query, engine3)
+        
+        # Convertir NaT (Not a Time) a None para que sea compatible con JSON
+        df_serializable = df.replace({pd.NaT: None})
+        
+        # Convertir a formato JSON
+        data = df_serializable.to_dict(orient='records')
+        
+        return jsonify(data)
+    except Exception as e:
+        print(f"Error al obtener métricas históricas: {e}")
+        return jsonify({'error': 'No se pudieron obtener los datos de monitorización.'}), 500
+
+
 #  INICIO DE LA APLICACIÓN 
 print("Iniciando el listener de la base de datos en un hilo de fondo...")
 listener_thread = threading.Thread(target=database_listener, daemon=True)
 listener_thread.start()
 
 if __name__ == '__main__':
-    recargar_modelos()
+    modelos_dir = "modelos_entrenados"
+    if not os.path.isdir(modelos_dir) or not os.listdir(modelos_dir):
+        print(f"INFO: La carpeta '{modelos_dir}' no existe o está vacía. Iniciando primer entrenamiento automático...")
+        try:
+            # Llamamos a la misma función que ya usas para reentrenar
+            reentrenar_modelos()
+            # Después del primer entrenamiento, es crucial cargar los modelos en memoria
+            recargar_modelos()
+        except Exception as e:
+            print(f"ERROR: Falló el primer entrenamiento automático: {e}")
+    else:
+        print(f"INFO: Carpeta '{modelos_dir}' encontrada. Cargando modelos existentes...")
+        # Si la carpeta existe y tiene contenido, simplemente cargamos los modelos
+        recargar_modelos()
     app.run(host='0.0.0.0', port=5001, debug=True, use_reloader=False)
