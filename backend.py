@@ -1101,17 +1101,6 @@ listener_thread.start()
 
 if __name__ == '__main__':
     modelos_dir = "modelos_entrenados"
-    if not os.path.isdir(modelos_dir) or not os.listdir(modelos_dir):
-        print(f"INFO: La carpeta '{modelos_dir}' no existe o está vacía. Iniciando primer entrenamiento automático...")
-        try:
-            # Llamamos a la misma función que ya usas para reentrenar
-            reentrenar_modelos()
-            # Después del primer entrenamiento, es crucial cargar los modelos en memoria
-            recargar_modelos()
-        except Exception as e:
-            print(f"ERROR: Falló el primer entrenamiento automático: {e}")
-    else:
-        print(f"INFO: Carpeta '{modelos_dir}' encontrada. Cargando modelos existentes...")
-        # Si la carpeta existe y tiene contenido, simplemente cargamos los modelos
-        recargar_modelos()
+    reentrenar_modelos()
+    recargar_modelos()
     app.run(host='0.0.0.0', port=5001, debug=True, use_reloader=False)
