@@ -4,8 +4,9 @@ describe('Flujo Principal de la Aplicación', () => {
       
       cy.intercept('GET', '**/api/get-options', {
         statusCode: 200,
-        body: ['C1', 'TAC1', 'DSA1']
+        body: ['C1', 'TAC1', 'TAC4', 'DCQ1','DSA1']
       }).as('getOptionsRequest'); 
+
       cy.intercept('POST', '**/api/predict', {
         statusCode: 200,
         body: [{
@@ -20,7 +21,30 @@ describe('Flujo Principal de la Aplicación', () => {
 
       // Visitar la página principal
       cy.visit('http://localhost:3000');
+
+      const checkBackendStatus = (retries = 30) => { // 30 reintentos * 10s = 5 minutos de espera máxima
+        if (retries < 0) {
+          throw new Error('El backend no estuvo listo a tiempo.');
+        }
+        cy.request({
+          url: 'api/status', // URL completa del backend
+          failOnStatusCode: false // No fallar si la API devuelve un error temporalmente
+        }).then((response) => {
+          // Si el backend responde que está 'idle' (inactivo), continuamos.
+          if (response.status === 200 && response.body.status === 'idle') {
+            cy.log('Backend listo. Continuando con la prueba.');
+          } else {
+            // Si no, esperamos 10 segundos y volvemos a intentar.
+            cy.log(`Backend ocupado o no disponible... Reintentos restantes: ${retries}`);
+            cy.wait(10000); 
+            checkBackendStatus(retries - 1);
+          }
+        });
+      }
       
+      cy.log('Esperando a que el backend esté listo...');
+      checkBackendStatus();  
+
       // Navegar a la página de predicción
       cy.contains('button', 'Predecir').click();
       cy.url().should('include', '/predict');
