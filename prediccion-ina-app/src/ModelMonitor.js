@@ -18,7 +18,6 @@ function ModelMonitor() {
             setIsLoading(true);
             try {
                 const response = await axios.get('/api/metricas-historicas');
-                // Inicializamos los filtros con el primer valor disponible si existen datos
                 if (response.data.length > 0) {
                     setSelectedSitio(response.data[0].sitio);
                     setSelectedTarget(response.data[0].variable_objetivo);
@@ -43,7 +42,6 @@ function ModelMonitor() {
             .filter(item => item.sitio === selectedSitio && item.variable_objetivo === selectedTarget)
             .map(item => ({
                 ...item,
-                // Formatear la fecha para que sea legible en el eje X
                 fecha: new Date(item.timestamp_entrenamiento).toLocaleDateString('es-AR')
             }));
     }, [historyData, selectedSitio, selectedTarget]);
@@ -74,7 +72,7 @@ function ModelMonitor() {
                         <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                             <CartesianGrid strokeDasharray="3 3" />
                             <XAxis dataKey="fecha" />
-                            <YAxis domain={[0, 1]} /> {/* Dominio de 0 a 1 para F1 y ROC AUC */}
+                            <YAxis domain={[0, 1]} />
                             <Tooltip />
                             <Legend />
                             <Line type="monotone" dataKey="f1_score_cv" name="F1-Score (CV)" stroke="#8884d8" activeDot={{ r: 8 }} />

@@ -8,23 +8,20 @@ body {
 }
 
 .back-button {
-  /* --- Posicionamiento --- */
-  position: absolute;   /* Lo sacamos del flujo normal */
-  top: 5px;            /* Distancia desde el borde superior del .container */
-  left: 15px;           /* Distancia desde el borde izquierdo del .container */
+  position: absolute;   
+  top: 5px;
+  left: 15px; 
 
-  /* --- Apariencia (Flecha azul, bold, sin fondo ni borde) --- */
   background: none;
   border: none;
-  padding: 5px; /* Pequeño padding para que sea fácil de clickear */
-  margin: 0;      /* Reseteamos el margen */
+  padding: 5px;
+  margin: 0;      
   
-  /* --- Estilo del texto/icono --- */
-  font-size: 28px;      /* Hacemos la flecha más grande */
-  font-weight: bold;    /* Hacemos la flecha "bold" */
-  color: #105989;      /* Color azul */
+ 
+  font-size: 28px;     
+  font-weight: bold;    
+  color: #105989;  
   
-  /* --- Interacción --- */
   cursor: pointer;
   transition: transform 0.2s ease;
 }
@@ -32,8 +29,8 @@ body {
 /* Contenedor principal de la página */
 .container {
   display: flex;
-  flex-direction: column; /* Apila los elementos verticalmente */
-  align-items: center;    /* Centra los elementos horizontalmente */
+  flex-direction: column; 
+  align-items: center; 
   padding-top: 20px;
   width: 100%;
 }
@@ -43,7 +40,7 @@ body {
   color: #005b96;
   font-size: 1.5em; /* Un poco más grande para darle jerarquía */
   margin-top: 0; 
-  margin-bottom: 0;/* Quitamos márgenes por defecto del h2 */
+  margin-bottom: 0;
 }
 
 /* Contenedor para el <select> y el <button> */
@@ -106,12 +103,12 @@ body {
   border-radius: 8px;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
   transition: transform 0.2s, background-color 0.2s;
-  box-sizing: border-box; /* Asegura que el padding no afecte la altura total */
-  height: 45px; /* Misma altura fija que el select */
+  box-sizing: border-box;
+  height: 45px; 
 }
 
 .primary-button:hover {
-  transform: translateY(-2px); /* Un efecto de "levantarse" sutil */
+  transform: translateY(-2px);
   background-color: #005b96;
 }
 
@@ -119,7 +116,7 @@ body {
   max-width: 90%;
   overflow-x: auto;
   margin: 1px 0;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* Añadir sombra para dar efecto de contenedor */
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); 
 }
 
 table {
@@ -127,14 +124,14 @@ table {
   border-collapse: collapse;
   width: 100%;
   background-color: white;
-  border: 1px solid #b3e5fc; /* Celeste claro */
+  border: 1px solid #b3e5fc;
   
 }
 
 th, td {
   text-align: center;
   vertical-align: middle;
-  border-right: 1px solid #e9ecef; /* Separador vertical */
+  border-right: 1px solid #e9ecef;
   
 }
 
@@ -144,7 +141,7 @@ td:last-child {
 }
 
 th {
-  padding: 1px 3px; /* Padding más generoso */
+  padding: 1px 3px;
   background-color: #004d73;
   color: #ffffff;
   font-weight: 600;
@@ -168,14 +165,14 @@ td {
   border-radius: 10px;
   width: 80%;
   max-width: 800px;
-  background-color: #f1f9ff; /* Fondo más claro para destacar el modal */
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* Añadir sombra para dar efecto de modal */
+  background-color: #f1f9ff; 
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); 
 }
 
 .tabs-header {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px; /* Un pequeño espacio entre las pestañas */
+  gap: 8px; 
   padding-bottom: 5px; 
   justify-content: center; 
   margin-top: 5px;
@@ -186,7 +183,7 @@ td {
 .tab-title {
   padding: 6px 12px;
   border-radius: 8px;
-  background-color: #005b96; /* Azul oscuro para tabs inactivos */
+  background-color: #005b96; 
   color: white;
   cursor: pointer;
   display: flex;
@@ -197,7 +194,7 @@ td {
 
 .tab-title.active {
   background-color: #ffffff;
-  color: #005b96; /* Color del contenedor de predicción para tabs activos */
+  color: #005b96;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
   border: 1px solid #cce1f1;
 }
@@ -225,7 +222,7 @@ td {
   position: absolute;
   top: 10px;
   right: 10px;
-  width: 80px; /* Ajuste del tamaño del logo */
+  width: 80px;
   height: auto;
 }
 
@@ -234,7 +231,7 @@ td {
   top: 10px;
   margin: 0 auto;
   display: block;
-  width: 250px; /* Tamaño más grande para la página principal */
+  width: 250px;
   height: auto;
 }
 
@@ -247,35 +244,33 @@ td {
 }
 
 .pagination button {
-  background-color: #007bb5; /* Azul intenso */
+  background-color: #007bb5;
   color: white;
   border: none;
-  padding: 6px 12px; /* Reducir tamaño de los botones para mejor ajuste */
-  font-size: 12px; /* Reducir tamaño de fuente para mejor ajuste */
+  padding: 6px 12px; 
+  font-size: 12px;
   cursor: pointer;
   border-radius: 5px;
 }
 
 .pagination button.active {
-  background-color: #005f8b; /* Azul más oscuro */
+  background-color: #005f8b; 
 }
 
 .pagination button:disabled {
-  background-color: #b3e5fc; /* Celeste claro */
-  color: #004d73; /* Azul oscuro */
+  background-color: #b3e5fc; 
+  color: #004d73;
   cursor: not-allowed;
 }
 
-/* --- Contenedor de Filtros (Centrado) --- */
 .filters-container {
   display: flex;
   justify-content: center;
   gap: 10px;
   width: 100%;
-  margin-bottom: 10px; /* Espacio antes de la tabla */
+  margin-bottom: 10px; 
 }
 
-/* Estilo para los menús desplegables*/
 .filter-select {
   padding: 8px;
   font-size: 12px;
@@ -286,7 +281,7 @@ td {
   cursor: pointer;
 }
 
-/* Predict.css */
+
 .prediction-item {
   background-color: white;
   border: 1px solid #cce1f1;
@@ -308,7 +303,7 @@ td {
   color: #333;
 }
 
-/* Estilo para la etiqueta de predicción  */
+
 .prediction-label {
   font-weight: bold;
   padding: 6px 12px;
@@ -316,8 +311,9 @@ td {
   color: white;
   font-size: 0.9em;
   text-align: center;
-  min-width: 150px; /* Ancho mínimo para consistencia */
+  min-width: 150px; 
 }
+
 /* Colores específicos para cada nivel de alerta */
 .prediction-alerta, .prediction-alerta-1 { /* Alerta 1 */
   background-color: #ebc52d; /* Amarillo */
@@ -330,22 +326,19 @@ td {
   background-color: #5ab151; /* Verde */
 }
 
-
 .prediction-nodata {
   background-color: #bdc3c7; /* Gris */
 }
 
 
-
-/* Contenedor para las métricas (Modelo, F1, etc.) */
 .metrics {
   font-size: 0.9em;
   color: #555;
   border-top: 1px dashed #e0e0e0;
   padding-top: 10px;
   display: flex;
-  justify-content: space-between; /* Espacia las métricas uniformemente */
-  flex-wrap: wrap; /* Permite que pasen a la siguiente línea si no caben */
+  justify-content: space-between; 
+  flex-wrap: wrap; 
 }
 
 .metrics span {
@@ -353,41 +346,31 @@ td {
 }
 
 .legend {
-  /* Ajusta este valor según tu preferencia */
-  /* Un valor entre 16px y 24px suele funcionar bien. */
   margin-top: 20px;
 }
-/* Contenedor principal de cada línea de la leyenda */
+
 .legend-item {
-  display: flex; /* Activa Flexbox */
-  align-items: flex-start; /* CRÍTICO: Alinea la parte superior del círculo con la parte superior del bloque de texto */
-  margin-bottom: 1px; /* Aumenté un poco el espacio para que se vea más limpio */
-  line-height: 1.5;    /* Establece una altura de línea consistente para el texto */
+  display: flex;
+  align-items: flex-start;
+  margin-bottom: 1px;
+  line-height: 1.5;    
 }
 
-/* Círculo de color */
 .legend-color {
   width: 16px;
   height: 1px;
   border-radius: 50%;
-  margin-right: 12px; /* Un poco más de espacio */
+  margin-right: 12px; 
   flex-shrink: 0;
-
-  /* --- LA CLAVE ESTÁ AQUÍ --- */
-  /* Este margen empuja el círculo hacia abajo para centrarlo con la primera línea de texto.
-     Se calcula aproximadamente como: (altura de línea del texto - altura del círculo) / 2.
-     Si tu line-height es 1.5 y el font-size es 16px, la altura de línea es 24px.
-     Entonces: (24px - 16px) / 2 = 4px.
-  */
   margin-top: 1px;
 }
 
-/* Título en negrita */
+
 .legend-text strong {
   margin-right: 6px;
 }
 
-/* --- Colores (sin cambios) --- */
+
 .legend-color.green {
   background-color: #28a745;
 }

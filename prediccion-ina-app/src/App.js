@@ -1,7 +1,3 @@
-// Dependencias necesarias
-// En el directorio del proyecto, instalar las siguientes dependencias:
-// npm install axios react-router-dom
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { BrowserRouter as Router, Route, Routes, useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -52,7 +48,6 @@ function PredictionDetails({ targetName, data }) {
   }
 
   // Caso 3: 'data' es el objeto completo con la predicción y las métricas.
-  // Generamos una clase CSS dinámica para poder darle color a la etiqueta.
   const labelClass = data.prediccion ? data.prediccion.toLowerCase().split('/')[0].replace(' ', '-') : 'nodata';
 
   return (
@@ -79,10 +74,10 @@ export function Predict() {
   const [predictionResult, setPredictionResult] = useState([]);
   const [options, setOptions] = useState([]);
   const [activeTab, setActiveTab] = useState(null);
-  const [isLoading, setIsLoading] = useState(false); // Para mostrar un feedback de carga
+  const [isLoading, setIsLoading] = useState(false); // feedback de carga
   const navigate = useNavigate();
 
-  // Carga las opciones del dropdown una sola vez cuando el componente se monta
+  // Carga las opciones del desplegable
   useEffect(() => {
     const fetchOptions = async () => {
       try {
@@ -95,7 +90,6 @@ export function Predict() {
     fetchOptions();
   }, []);
 
-  // Función para manejar la llamada a la API de predicción
   const handlePredict = async () => {
     if (!selectedOption) {
       alert('Por favor, selecciona una opción antes de predecir.');
@@ -115,13 +109,12 @@ export function Predict() {
         option: selectedOption,
       });
 
-      // La API siempre devuelve un array, lo procesamos
       const newPredictions = response.data.map(prediction => ({
         ...prediction,
         option: prediction.codigo_perfil
       }));
       
-      // Si se predijo "Todos", reemplazamos los resultados. Si no, los añadimos.
+      // Si se predijo "Todos", reemplazamos los resultados, si no, los agregamos
       if (selectedOption === 'Todos') {
         setPredictionResult(newPredictions);
         setActiveTab(newPredictions.length > 0 ? newPredictions[0].option : null);
@@ -388,7 +381,6 @@ function Datos() {
 }
 
 // Componente para mostrar los datos del DataFrame
-// Componente para mostrar los datos del DataFrame
 function Predicciones() {
   const [tableData, setTableData] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -415,7 +407,6 @@ function Predicciones() {
     { accessor: 'fecha_prediccion', Header: 'Fecha de Predicción' },
     { accessor: 'codigo_perfil', Header: 'Sitio' },
     { accessor: 'target', Header: 'Variable' },
-   //{ accessor: 'clase_alerta', Header: 'Alerta (Clase)' },
     { accessor: 'etiqueta_predicha', Header: 'Etiqueta' }
 ], []);
 
@@ -558,7 +549,6 @@ export function formatDate(dateString) {
     return '-';
   }
 
-  // Intenta crear un objeto de fecha. El constructor de Date es bastante flexible.
   const date = new Date(dateString);
 
   // Verifica si el objeto de fecha es válido.
@@ -641,7 +631,6 @@ function RetrainingOverlay() {
 function AppRoot() {
   const [isRetraining, setIsRetraining] = useState(false);
 
-  // --- REEMPLAZA TU useEffect DE WEBSOCKETS CON ESTE ---
   useEffect(() => {
     const checkStatus = async () => {
       try {
@@ -651,14 +640,13 @@ function AppRoot() {
         setIsRetraining(isCurrentlyRetraining);
       } catch (error) {
         console.error("Error al consultar el estado del backend:", error);
+        setIsRetraining(true);
       }
     };
 
     checkStatus();
     const intervalId = setInterval(checkStatus, 3000);
 
-    // Función de limpieza: es MUY IMPORTANTE limpiar el intervalo
-    // cuando el componente se desmonta para evitar fugas de memoria.
     return () => {
       clearInterval(intervalId);
     };

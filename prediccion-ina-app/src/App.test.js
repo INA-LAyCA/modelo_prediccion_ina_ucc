@@ -1,13 +1,9 @@
-// frontend/src/App.test.js
-
 import React from 'react';
 import { render, screen, fireEvent, waitFor, within, act  } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import axios from 'axios';
 import { MemoryRouter } from 'react-router-dom';
 
-// Importamos los componentes NOMBRADOS directamente desde App.js
-// y también la función de utilidad.
 import AppRoot, { Predict, formatDate, PredictionDetails } from './App';
 
 // Mockear axios para controlar las respuestas de la API
@@ -20,7 +16,7 @@ describe('formatDate utility function', () => {
   });
 
   test('should return "Fecha inválida" for incorrect formats', () => {
-    // Esta prueba ahora pasará porque '28-07-2025' no cumple el regex.
+
     expect(formatDate('28-07-2025')).toBe('Fecha inválida');
   });
 
@@ -33,11 +29,10 @@ describe('formatDate utility function', () => {
 
 describe('Predict Component', () => {
   test('fetches options and makes a prediction on button click', async () => {
-    // 1. Definir las respuestas simuladas de la API
+    // 1. respuestas simuladas de la API
     const mockOptions = ['C1', 'TAC1', 'DSA1'];
     const mockPrediction = [{
       codigo_perfil: 'C1',
-      // Corregimos la fecha en el mock para que coincida con la que busca el test
       fecha_prediccion: '2025-07-01T00:00:00', 
       Clorofila: { prediccion: 'Alerta', modelo_usado: 'RandomForest', f1_score_cv: 0.8, roc_auc_cv: 0.9 },
       Cianobacterias: { prediccion: 'Vigilancia', modelo_usado: 'MLP', f1_score_cv: 0.85, roc_auc_cv: 0.92 },
@@ -69,19 +64,15 @@ describe('Predict Component', () => {
       expect(screen.getByText('Alerta')).toBeInTheDocument();
     });
 
-    // --- INICIO DE LA CORRECCIÓN 2 ---
-    // Hacemos la búsqueda de texto más específica para evitar ambigüedades.
+  
     const clorofilaItem = screen.getByText(/^Clorofila:$/i).closest('li');
     expect(within(clorofilaItem).getByText(/RandomForest/i)).toBeInTheDocument();
     expect(within(clorofilaItem).getByText(/0.8/)).toBeInTheDocument();
     expect(within(clorofilaItem).getByText(/0.9/)).toBeInTheDocument();
 
-    // Hacemos lo mismo para Cianobacterias, buscando el texto exacto.
-    // El '^' y '$' aseguran que no coincida con "Dominancia de Cianobacterias".
     const cianoItem = screen.getByText(/^Cianobacterias:$/i).closest('li');
     expect(within(cianoItem).getByText(/MLP/i)).toBeInTheDocument();
-    // --- FIN DE LA CORRECCIÓN 2 ---
-
+  
     expect(axios.post).toHaveBeenCalledWith('/api/predict', {
       option: 'C1',
     });
@@ -113,7 +104,6 @@ describe('App Component Status Polling', () => {
     // 2. Cambio de estado: El backend empieza a reentrenar ('retraining')
     axios.get.mockResolvedValue({ data: { status: 'retraining' } });
 
-    // Avanzamos el tiempo para disparar el siguiente sondeo del setInterval.
     act(() => {
       jest.advanceTimersByTime(3000);
     });
@@ -122,13 +112,13 @@ describe('App Component Status Polling', () => {
     await waitFor(() => {
       expect(screen.getByText(/Espere, los modelos están siendo actualizados/i)).toBeInTheDocument();
     });
-    // Ahora, el número total de llamadas debe ser 2.
+    
     expect(axios.get).toHaveBeenCalledTimes(2);
 
     // 3. Vuelta al estado inicial: El backend termina ('idle')
     axios.get.mockResolvedValue({ data: { status: 'idle' } });
 
-    // Avanzamos el tiempo de nuevo.
+
     act(() => {
       jest.advanceTimersByTime(3000);
     });
@@ -137,7 +127,7 @@ describe('App Component Status Polling', () => {
     await waitFor(() => {
       expect(screen.queryByText(/Espere, los modelos están siendo actualizados/i)).toBeNull();
     });
-    // Y el número total de llamadas ahora debe ser 3.
+   
     expect(axios.get).toHaveBeenCalledTimes(3);
   });
 });

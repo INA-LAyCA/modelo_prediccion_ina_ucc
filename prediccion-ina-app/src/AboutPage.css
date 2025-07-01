@@ -18,7 +18,7 @@
   
   .about-title {
     font-size: 2.5rem;
-    color: #1a2c4e; /* Un azul corporativo oscuro */
+    color: #1a2c4e; 
     margin: 0;
     margin-left: 1.5rem;
     font-weight: 700;
@@ -55,8 +55,8 @@
   }
   
   .icon-container {
-    background-color: #e8f0fe; /* Un azul muy claro */
-    color: #3b74d9; /* Azul principal */
+    background-color: #e8f0fe; 
+    color: #3b74d9; 
     border-radius: 50%;
     width: 48px;
     height: 48px;
@@ -91,7 +91,7 @@
     padding-left: 10px;
   }
   
-  /* Estilos para la leyenda del semáforo */
+
   .legend {
     margin-top: 1.5rem;
     display: flex;
@@ -116,7 +116,7 @@
   .legend-color.yellow { background-color: #ffc107; }
   .legend-color.red { background-color: #dc3545; }
   
-  /* Responsive Design */
+ 
   @media (max-width: 768px) {
     .about-container {
       padding: 1.5rem;
