@@ -27,7 +27,7 @@ describe('Flujo Principal de la Aplicación', () => {
           throw new Error('El backend no estuvo listo a tiempo.');
         }
         cy.request({
-          url: 'api/status', // URL completa del backend
+          url: '/api/status', // URL completa del backend
           failOnStatusCode: false // No fallar si la API devuelve un error temporalmente
         }).then((response) => {
           // Si el backend responde que está 'idle' (inactivo), continuamos.
