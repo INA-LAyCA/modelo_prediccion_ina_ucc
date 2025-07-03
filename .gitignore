@@ -1,7 +1,6 @@
-# .gitignore para un proyecto de Python (Flask) + React + Machine Learning
 
 # # Archivos y Carpetas de Entornos Virtuales de Python
-# Ignorar la carpeta completa del entorno virtual. Es crucial.
+# Ignorar la carpeta completa del entorno virtual
 new_vevnv/
 venv/
 *.venv

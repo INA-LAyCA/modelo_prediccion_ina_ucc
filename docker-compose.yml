@@ -1,20 +1,13 @@
-# Versión de la sintaxis de Docker Compose
+
 version: '3.8'
 
-# Definición de los servicios (contenedores) que componen la aplicación
 services:
 
   # --- Servicio del Backend (Python/Flask) ---
   backend:
-    # 'build: .' le dice a Docker Compose que busque el Dockerfile
-    # en el directorio actual (la raíz del proyecto) para construir esta imagen.
     build: .
-    # Le damos un nombre al contenedor para identificarlo fácilmente
     image: mi_app_backend:latest
     container_name: mi_app_backend
-    # Opcional: Mapea el puerto para poder acceder al backend directamente
-    # desde el servidor si fuera necesario para depuración.
-    # El tráfico normal de los usuarios irá a través del frontend.
     ports:
       - "5001:5001"
     # Reinicia el contenedor automáticamente si falla
@@ -22,12 +15,9 @@ services:
 
   # --- Servicio del Frontend (React/Nginx) ---
   frontend:
-    # Busca el Dockerfile en la carpeta './frontend' para construir esta imagen.
     build: ./prediccion-ina-app
     image: mi_app_frontend:latest
     container_name: mi_app_frontend
-    # Mapea el puerto 80 del contenedor (donde escucha Nginx) al puerto 3000
-    # del servidor. Los usuarios accederán a la app a través de la IP_DEL_SERVIDOR:3000
     ports:
       - "3000:80"
     # El frontend depende del backend. Esto asegura que el backend se inicie primero.

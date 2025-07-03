@@ -129,3 +129,59 @@
     }
   }
   
+
+.threshold-title {
+  text-align: center;
+  margin-top: 30px;
+  margin-bottom: 15px;
+  color: #004d73;
+  font-size: 1.4em;
+}
+
+.threshold-table {
+  width: 100%;
+  max-width: 600px; /* Limitar el ancho para mejor legibilidad */
+  margin: 0 auto 20px auto; /* Centrar la tabla */
+  border-collapse: collapse;
+  border: 1px solid #cce1f1;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  background-color: #fff;
+  margin-top: 10px;
+  border-radius: 2px;
+}
+
+.threshold-table th,
+.threshold-table td {
+  border: 1px solid #cce1f1;
+  padding: 12px;
+  text-align: center;
+  vertical-align: middle;
+  border-radius: 2px;
+}
+
+.threshold-table th {
+  color: white;
+  font-weight: bold;
+  border-radius: 2px;
+}
+
+.threshold-table td {
+  color: #333;
+}
+
+.threshold-table td:first-child strong {
+  color: #004d73;
+}
+
+.th-vigilancia {
+  background-color: #28a745; /* Verde */
+}
+
+.th-alerta1 {
+  background-color: #ffc107; /* Amarillo */
+  color: #333; /* Texto oscuro para mejor contraste */
+}
+
+.th-alerta2 {
+  background-color: #dc3545; /* Rojo */
+}

@@ -315,10 +315,8 @@ def train_evaluate_mlp(X, y, sitio, target_name, tuner_dir):
             lambda hp: build_mlp_model_for_tuner(hp, X.shape[1], num_classes),
             objective='val_accuracy', max_trials=KT_MAX_TRIALS_NN,
             
-            # Usamos la ruta principal para el directorio
             directory=tuner_dir,
             
-            # Usamos un nombre de proyecto único para la subcarpeta
             project_name=f'kt_{sitio}_{target_name}',
             
             overwrite=True
@@ -401,28 +399,21 @@ def guardar_metricas_entrenamiento(sitio, target, model_info):
         (:sitio, :variable_objetivo, :modelo_usado, :f1_score_cv, :roc_auc_cv, :hiperparametros)
     """)
 
-    # --- INICIO DE LA CORRECCIÓN ---
-    
-    # 1. Obtenemos las métricas del diccionario de información del modelo.
     f1_score_np = model_info.get('f1_macro_cv')
     roc_auc_np = model_info.get('roc_auc_cv')
 
-    # 2. Convertimos los tipos de NumPy a tipos nativos de Python.
-    #    Si el valor es NaN, lo convertimos a None para que la BD lo guarde como NULL.
     f1_score_py = float(f1_score_np) if pd.notna(f1_score_np) else None
     roc_auc_py = float(roc_auc_np) if pd.notna(roc_auc_np) else None
 
-    # 3. Construimos el diccionario de parámetros con los valores ya convertidos.
     params = {
         'sitio': sitio,
         'variable_objetivo': target,
         'modelo_usado': model_info.get('modelo', 'N/D'),
-        'f1_score_cv': f1_score_py,   # <-- Usamos el valor Python
-        'roc_auc_cv': roc_auc_py,     # <-- Usamos el valor Python
+        'f1_score_cv': f1_score_py, 
+        'roc_auc_cv': roc_auc_py,  
         'hiperparametros': str(model_info.get('best_params', {}))
     }
-    # --- FIN DE LA CORRECCIÓN ---
-    
+ 
     try:
         with engine3.connect() as conn:
             conn.execute(sql, params)
@@ -458,7 +449,7 @@ def main():
     os.makedirs(DIR_MODELOS, exist_ok=True)
     
     DIR_TUNER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'tuner_logs')
-    # No es necesario crear DIR_TUNER, Keras Tuner lo maneja.
+    
 
     # Configuración de los targets a modelar
     targets_config = {
@@ -491,7 +482,7 @@ def main():
                 print(f"INFO: Omitiendo. No hay datos para el sitio {sitio}.")
                 continue
             
-            X, y, _ = prepare_final_dataset(df_site, cfg) # No necesitamos X_pred
+            X, y, _ = prepare_final_dataset(df_site, cfg)
             if X.empty or y.nunique() < 2:
                 print(f"INFO: Omitiendo. Datos insuficientes para entrenar (N de clases < 2 o data vacía).")
                 continue
@@ -506,7 +497,7 @@ def main():
             
             # 5. Evaluación de modelos
             res_skl = train_evaluate_sklearn(X_sel, y, sitio, target_key)
-            res_mlp = train_evaluate_mlp(X_sel, y, sitio, target_key, DIR_TUNER) # Pasamos dir del tuner
+            res_mlp = train_evaluate_mlp(X_sel, y, sitio, target_key, DIR_TUNER)
             cur = pd.concat([res_skl, res_mlp], ignore_index=True)
             
             if cur.empty:

@@ -10,7 +10,7 @@ services:
       - POSTGRES_PASSWORD=testpass
       - POSTGRES_DB=testdb
     ports:
-      - "54321:5432" # Mapea el puerto 5432 del contenedor al 54321 de tu máquina
+      - "54321:5432" 
     volumes:
       - postgres_test_data:/var/lib/postgresql/data
 

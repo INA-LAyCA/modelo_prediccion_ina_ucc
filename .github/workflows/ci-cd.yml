@@ -8,7 +8,7 @@ on:
     branches: [ "main" ]
 
 jobs:
-  # --- TRABAJO 1: CORRER TODAS LAS PRUEBAS ---
+  # CORRER TODAS LAS PRUEBAS ---
   test:
     name: ✅ Validar y Probar
     runs-on: ubuntu-latest
@@ -43,7 +43,7 @@ jobs:
         if: always()
         run: docker compose -f docker-compose.test.yml down
 
-  # --- TRABAJO 2: CONSTRUIR Y EMPAQUETAR IMÁGENES ---
+  #  CONSTRUIR Y EMPAQUETAR IMÁGENES ---
   build-and-package:
     name: 📦 Construir y Empaquetar Imágenes
     needs: test
@@ -51,8 +51,6 @@ jobs:
     steps:
       - name: Checkout del código
         uses: actions/checkout@v4
-
-      # -- SE HA ELIMINADO EL PASO DE LOGIN AQUÍ --
 
       # 1. Construye las imágenes de producción
       - name: Construir imágenes de Docker

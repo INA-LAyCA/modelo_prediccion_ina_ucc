@@ -19,7 +19,6 @@ from sklearn.model_selection import cross_val_score
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 from entrenar_modelos import preprocess_and_feature_engineer
 
-# Configuración de Flask
 app = Flask(__name__)
 CORS(app)
 
@@ -41,12 +40,12 @@ engine = create_engine(f'postgresql+psycopg2://{usuario}:{contraseña}@{host}:{p
 engine2 = create_engine(f'postgresql+psycopg2://{usuario}:{contraseña}@{host2}:{puerto2}/{nombre_base_datos2}')
 engine3 = create_engine(f'postgresql+psycopg2://{usuario}:{contraseña}@{host2}:{puerto2}/{nombre_base_modelo}')
 
+
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 APP_STATUS = {'is_retraining': False}
 status_lock = threading.Lock()
 
-# Función para obtener y procesar el DataFrame
 def obtener_dataframe():
     try:
         df = pd.read_sql("SELECT * from vistaconjunto", engine)
@@ -63,7 +62,6 @@ def obtener_dataframe():
     
     cols_cianobact = ['Anabaena', 'Anabaenopsis', 'Aphanizomenon', 'Aphanocapsa', 'Aphanothece', 'Geitlerinema', 'Merismopedia', 'Chroococcus', 'Nostoc', 'Microcystis', 'Oscillatoria', 'Phormidium', 'Planktothrix', 'Pseudoanabaena', 'Raphydiopsis', 'Romeria', 'Spirulina', 'Dolichospermum', 'Leptolyngbya', 'Synechococcus']
     
-    # Lógica robusta para cianobacterias
     cols_cianobact_presentes = [col for col in cols_cianobact if col in df_final.columns]
     if cols_cianobact_presentes:
         df_final['Cianobacterias Total'] = df_final[cols_cianobact_presentes].apply(lambda row: np.nan if row.isnull().any() else row.sum(), axis=1)
@@ -75,50 +73,43 @@ def obtener_dataframe():
     df_final.dropna(subset=['fecha'], inplace=True)
     df_final = df_final[df_final['fecha'] >= pd.Timestamp('1999-07-24')]
 
-    #Imputación Cota
     df_final = imputar_cota_m(df_final)
 
-    #Selección de mejores fechas y eliminacion de duplicados
     df_final = seleccionar_medicion_mensual(df_final)
-    
-    #Imputar condicion termica
+   
     df_final=condicion_termica(df_final, engine)
-
-    #Union temperatura del aire
+   
     df_final=union_temperatura_aire (df_final, engine2)
     
-    df_final['fecha'] = pd.to_datetime(df_final['fecha'], errors='coerce') # Re-asegurar por si acaso
+    df_final['fecha'] = pd.to_datetime(df_final['fecha'], errors='coerce') 
 
-    if 'mes' not in df_final.columns: # Crear 'mes' si no lo hizo union_temperatura_aire
+    if 'mes' not in df_final.columns:
         df_final['mes'] = df_final['fecha'].dt.month
     
-    if 'estacion' not in df_final.columns: # Crear 'estacion' si no lo hizo alguna función previa de forma consistente
-        df_final['estacion'] = df_final['mes'].apply(asignar_estacion) # Usar la función helper consistente
+    if 'estacion' not in df_final.columns: 
+        df_final['estacion'] = df_final['mes'].apply(asignar_estacion) 
     
-    #Imputación temperatura del agua
+
     df_final=imputacion_temperatura_agua(df_final)
 
-    # Eliminar registros donde ambas columnas son nulas
+    
     df_final = df_final[~(df_final['Total Algas Sumatoria (Cel/L)'].isnull() & df_final['Cianobacterias Total'].isnull())]
 
-    #Imputacion temperatura del aire max y min 
+    
     df_final=imputacion_temperatura_aire(df_final)
 
-    # --- Ejecución principal ---
+
     df_final, _ = imputacion_clorofila(df_final)
     df_final, _ = imputar_pht(df_final)
     df_final, _ = imputar_prs(df_final)
     df_final, resultado_imputaciones, resultados_nitrogeno = imputar_nitrogeno(df_final)
-    # Cálculo de Nitrogeno Inorganico Total
-    # Esta suma usa 'N-NH4 (µg/l)', 'N-NO2 (µg/l)' y 'N-NO3 (mg/l)'
+
     df_final['Nitrogeno Inorganico Total (µg/l)'] = df_final.apply(
         lambda row: np.nan if pd.isnull(row['N-NH4 (µg/l)']) or pd.isnull(row['N-NO2 (µg/l)']) or pd.isnull(row['N-NO3 (mg/l)']) 
         else row['N-NH4 (µg/l)'] + row['N-NO2 (µg/l)'] + (row['N-NO3 (mg/l)'] * 1000),
         axis=1
     )
     
-    #Eliminar las columnas de nitrógeno individuales (incluyendo N-NO3 (mg/l)) ---
-    # CÓDIGO NUEVO Y ROBUSTO
     columnas_nitrogeno_a_eliminar = [
     'N-NH4 (µg/l)',
     'N-NO2 (µg/l)',
@@ -126,12 +117,10 @@ def obtener_dataframe():
     'N-NO3 (mg/l)'
     ]
 
-# Filtra la lista para obtener solo las columnas que SÍ existen en el DataFrame
     columnas_existentes_para_eliminar = [
         col for col in columnas_nitrogeno_a_eliminar if col in df_final.columns
     ]
 
-# Elimina únicamente las columnas que existen
     if columnas_existentes_para_eliminar:
         df_final.drop(columns=columnas_existentes_para_eliminar, inplace=True)
     if 'Cianobacterias Total' in df_final.columns and 'Total Algas Sumatoria (Cel/L)' in df_final.columns:
@@ -149,7 +138,6 @@ def obtener_dataframe():
 
 # --- Funciones Auxiliares de Procesamiento ---
 
-#Función union de datos de precipitación al dataframe final
 def union_precipitacion (df_final, engine2):
     try:
         query4 = "SELECT * FROM vista_precipitacion_acumulada_3d;"
@@ -157,28 +145,28 @@ def union_precipitacion (df_final, engine2):
         if df_precipitacion.empty or 'fecha_dia' not in df_precipitacion.columns:
             return df_final
 
-        # sensores de interés
+      
         sensores_interes = {
-            600: '600_Bo_El_Canal', # <-- Normalizado
-            700: '700_Confluencia_El_Cajon', # <-- NORMALIZADO (sin acento)
-            1100: '1100_CIRSA_Villa_Carlos_Paz', # <-- Normalizado
+            600: '600_Bo_El_Canal', 
+            700: '700_Confluencia_El_Cajon', 
+            1100: '1100_CIRSA_Villa_Carlos_Paz', 
         }
 
-        # Reemplazar id_sensor por el nombre descriptivo
+        
         df_precipitacion['sensor_nombre'] = df_precipitacion['sensor_id'].map(sensores_interes)
         print("Llego hasta leer los sensores")
-        # Pivotear: fecha como índice, cada sensor como una columna
+        
         df_precipitacion_pivot = df_precipitacion.pivot(
             index='fecha_dia',
             columns='sensor_id',
             values='precipitacion_acumulada_3d'
         ).reset_index()
         print("Llego hasta pivotear sensores como columnas")
-        # Asegurarse que la fecha del df_final también sea tipo date
+        
         df_final['fecha'] = pd.to_datetime(df_final['fecha']).dt.date
         df_precipitacion_pivot['fecha_dia'] = pd.to_datetime(df_precipitacion_pivot['fecha_dia']).dt.date
 
-        # merge por fecha
+       
         df_merged = df_final.merge(df_precipitacion_pivot, how='left', left_on='fecha', right_on='fecha_dia')
         if 'fecha_dia' in df_merged.columns:
             df_merged.drop(columns=['fecha_dia'], inplace=True)
@@ -315,41 +303,33 @@ def imputar_prs(df_final):
 def imputar_nitrogeno(df_final):
     df = df_final.copy()
     
-    # --- INICIO DE LA LÓGICA ROBUSTA ---
-
-    # 1. Chequeo inicial: Si la columna base no existe, no podemos hacer nada.
     if 'N-NO3 (mg/l)' not in df.columns:
-        # Creamos columnas vacías para que el resto del pipeline no falle
-        # si espera estas columnas más adelante.
+        
         df['N-NH4 (µg/l)'] = np.nan
         df['N-NO2 (µg/l)'] = np.nan
-        # Devolvemos el DataFrame y resultados vacíos.
+       
         return df, pd.DataFrame(), pd.DataFrame()
 
-    # Si la columna existe, procedemos.
+    
     df['N-NO3 (µg/l)'] = df['N-NO3 (mg/l)'] * 1000
 
-    # 2. Selección robusta de predictores
+   
     objetivo = ['N-NH4 (µg/l)', 'N-NO2 (µg/l)', 'N-NO3 (µg/l)']
     variables_predictoras_posibles = [
         'PHT (µg/l)', 'PRS (µg/l)', 'Clorofila (µg/l)', 
         'Total Algas Sumatoria (Cel/L)', 'Cianobacterias Total', 'T° (°C)'
     ]
     
-    # Filtramos solo los predictores que realmente existen en el DataFrame
     variables_predictoras = [p for p in variables_predictoras_posibles if p in df.columns]
-
-    # Si no hay predictores, no podemos imputar.
+    
     if not variables_predictoras:
         df['N-NO3 (mg/l)'] = df['N-NO3 (µg/l)'] / 1000
         return df, pd.DataFrame(), pd.DataFrame()
 
-    # --- FIN DE LA LÓGICA ROBUSTA ---
 
     resultados = []
     imputaciones = []
 
-    # Iteramos solo sobre las columnas objetivo que existen
     objetivo_existente = [v for v in objetivo if v in df.columns]
 
     for (sitio, est), grupo in df.groupby(['codigo_perfil', 'estacion']):
@@ -417,7 +397,7 @@ def imputar_nitrogeno(df_final):
                 'error_mediana_pct': error_mediana_pct
             })
 
-    # Convertir de vuelta a mg/l si la columna existe
+    
     if 'N-NO3 (µg/l)' in df.columns:
         df['N-NO3 (mg/l)'] = df['N-NO3 (µg/l)'] / 1000
 
@@ -425,16 +405,16 @@ def imputar_nitrogeno(df_final):
 
 
 def imputacion_temperatura_aire(df_final):
-    # Crear columna auxiliar mes (si no existe ya)
+    
     if 'mes' not in df_final.columns:
         df_final['mes'] = df_final['fecha'].dt.month
 
-# Imputar temperatura del aire max y min por estación y mes
+
     for var in ['temperatura_max', 'temperatura_min']:
-        if var in df_final.columns: # Verificar si la columna existe
+        if var in df_final.columns: 
             df_final[var] = pd.to_numeric(df_final[var], errors='coerce')
             df_final[var] = df_final.groupby(['estacion', 'mes'])[var].transform(lambda x: x.fillna(x.mean()))
-            # Opcional: Relleno global
+            
             if df_final[var].isnull().any():
                 df_final[var].fillna(df_final[var].mean(), inplace=True)
     return df_final
@@ -443,14 +423,13 @@ def union_temperatura_aire (df_final, engine2):
     query5 = "SELECT * FROM vista_temperatura;"
     df_temp = pd.read_sql(query5, engine2)
 
-    # Verificar y convertir a datetime si es necesario
     df_final['fecha'] = pd.to_datetime(df_final['fecha'], errors='coerce')
     df_temp['fecha_dia'] = pd.to_datetime(df_temp['fecha_dia'], errors='coerce')
 
-    # Merge entre df_final y temperatura diaria
+ 
     df_final = df_final.merge(df_temp, left_on='fecha', right_on='fecha_dia', how='left')
 
-    #Eliminar columna redundante
+    
     df_final.drop(columns='fecha_dia', inplace=True)
     print("Ejemplo union temperatura: ", df_final.head())
 
@@ -459,7 +438,6 @@ def union_temperatura_aire (df_final, engine2):
 def imputacion_temperatura_agua(df_final):
     df_final['T° (°C)'] = pd.to_numeric(df_final['T° (°C)'], errors='coerce')
     
-    # Imputar temperatura usando el promedio por estación y por sitio
     df_final['T° (°C)'] = df_final.groupby(['codigo_perfil', 'estacion'])['T° (°C)'].transform(
         lambda x: x.fillna(x.mean())
     )
@@ -467,13 +445,13 @@ def imputacion_temperatura_agua(df_final):
 
 
 def imputar_cota_m(df_final):
-        # Agrupar por 'fecha' y rellenar los valores nulos en 'Cota (m)'
+        
     if 'Cota (m)' in df_final.columns:
         df_final['Cota (m)'] = pd.to_numeric(df_final['Cota (m)'], errors='coerce')
         df_final['Cota (m)'] = df_final.groupby('fecha')['Cota (m)'].transform(
             lambda x: x.fillna(method='ffill').fillna(method='bfill')
         )
-        # Considera un fillna global si aún quedan NaNs después del groupby
+       
         df_final['Cota (m)'].fillna(df_final['Cota (m)'].mean(), inplace=True)
     return df_final
 
@@ -483,19 +461,16 @@ def seleccionar_medicion_mensual(df_final):
     Los criterios son: mayor número de sitios medidos ese día en el mes,
     menor porcentaje de datos faltantes, y la fecha más reciente.
     """
-    df = df_final.copy() # Trabajar sobre una copia para evitar SettingWithCopyWarning
+    df = df_final.copy() 
 
-    # 1. Crear columnas auxiliares para la agrupación y ordenamiento
     df['year_month'] = df['fecha'].dt.to_period('M')
     
-    if 'codigo_perfil' in df.columns: # Solo si la columna existe
+    if 'codigo_perfil' in df.columns: 
         df['num_sitios_dia_mes'] = df.groupby(['year_month', 'fecha'])['codigo_perfil'].transform('nunique')
     else:
-        df['num_sitios_dia_mes'] = 1 # Valor por defecto si no hay codigo_perfil
+        df['num_sitios_dia_mes'] = 1 
 
-    # 2. Calcular el porcentaje de datos faltantes para cada día
-    # Manera más robusta de seleccionar columnas de medición:
-    # Excluir columnas identificadoras/categóricas/auxiliares conocidas
+    
     cols_identificadoras_y_aux = [
         'id_registro', 'condicion_termica', 'fecha', 'codigo_perfil', 
         'descripcion_estratificacion', 'z', 'year_month', 'num_sitios_dia_mes' # Incluir la recién creada
@@ -506,11 +481,10 @@ def seleccionar_medicion_mensual(df_final):
     if columnas_de_medicion:
         df['porcentaje_faltantes_dia'] = df[columnas_de_medicion].isna().mean(axis=1)
     else:
-        df['porcentaje_faltantes_dia'] = 0.0 # Si no hay columnas de medición, no hay faltantes
-
-    # 3. Selección de la fecha final
+        df['porcentaje_faltantes_dia'] = 0.0 
+ 
     columnas_ordenamiento = ['year_month', 'num_sitios_dia_mes', 'porcentaje_faltantes_dia', 'fecha']
-    # Asegurar que todas las columnas de ordenamiento existen
+   
     columnas_ordenamiento_existentes = [col for col in columnas_ordenamiento if col in df.columns]
 
     if len(columnas_ordenamiento_existentes) == len(columnas_ordenamiento):
@@ -518,14 +492,13 @@ def seleccionar_medicion_mensual(df_final):
             by=columnas_ordenamiento_existentes,
             ascending=[True, False, True, False] # Mes asc, num_sitios desc, faltantes asc, fecha desc
         )
-         # Seleccionar la primera entrada de cada mes y sitio
+         
          df_seleccionado = data_sorted.drop_duplicates(subset=['year_month', 'codigo_perfil'], keep='first')
     else:
-        # Si faltan columnas para ordenar, se devuelve el df sin este paso o se loggea una advertencia
+
         app.logger.warning("No se pudo realizar la selección de medición mensual representativa por falta de columnas de ordenamiento.")
         df_seleccionado = df 
 
-    # 4 Eliminar columnas auxiliares creadas dentro de esta función
     cols_aux_a_eliminar = ['year_month', 'num_sitios_dia_mes', 'porcentaje_faltantes_dia']
     df_seleccionado = df_seleccionado.drop(columns=[col for col in cols_aux_a_eliminar if col in df_seleccionado.columns], errors='ignore')
     
@@ -536,19 +509,17 @@ def condicion_termica(df_principal, db_engine_param):
     Calcula y actualiza la columna 'condicion_termica' en el DataFrame principal,
     siguiendo la lógica del script original del usuario.
     """
-    df_a_modificar = df_principal.copy() # Trabajar sobre una copia del DataFrame principal
+    df_a_modificar = df_principal.copy() 
 
-    # Consulta para obtener los datos de condicion_termica
     query3 = "SELECT * from vista_condicion_termica"
-    df_CT = None # Inicializar df_CT por si falla la carga
+    df_CT = None 
     try:
-        # Usar el parámetro db_engine_param en lugar del 'engine' global
         df_CT = pd.read_sql(query3, db_engine_param)
         print("Primeras filas de df_CT (vista_condicion_termica):")
         print(df_CT.head())
     except Exception as e:
         print(f"Error al leer vista_condicion_termica: {e}")
-        return df_a_modificar # Devolver el df principal sin modificar si hay error
+        return df_a_modificar 
 
     if df_CT is None or df_CT.empty:
         print("df_CT está vacío o no se pudo cargar. No se procesará condición térmica.")
@@ -557,7 +528,6 @@ def condicion_termica(df_principal, db_engine_param):
     print("Valores nulos en df_CT antes del procesamiento de condición térmica:")
     print(df_CT.isna().sum())
 
-    # Agrupación por familia de perfiles
     grupos_perfiles = {
         'C': ['C1', 'C2', 'C3', 'C4', 'C5'],
         'TAC': ['TAC1', 'TAC2', 'TAC3', 'TAC4', 'TAC5'],
@@ -565,7 +535,6 @@ def condicion_termica(df_principal, db_engine_param):
         'DCQ': ['DCQ1', 'DCQ2', 'DCQ3', 'DCQ4', 'DCQ5']
     }
 
-    # Funciones auxiliares (se vuelven anidadas dentro de esta función principal)
     def asignar_grupo(perfil):
     
         for grupo, perfiles in grupos_perfiles.items():
@@ -573,32 +542,30 @@ def condicion_termica(df_principal, db_engine_param):
                 return grupo
         return perfil
 
-    # Asignar columna 'grupo'
-    # Asegurar que 'codigo_perfil' exista en df_CT
     if 'codigo_perfil' not in df_CT.columns:
         print("Error: La columna 'codigo_perfil' no existe en df_CT.")
         return df_a_modificar
     df_CT['grupo'] = df_CT['codigo_perfil'].apply(asignar_grupo)
 
     # --- PASO 1: Propagar ---
-    def propagar_condicion(grupo_df_prop): # Renombrado para evitar conflicto
-        # Asegurar que 'condicion_termica' exista
+    def propagar_condicion(grupo_df_prop):
+        
         if 'condicion_termica' not in grupo_df_prop.columns or grupo_df_prop['condicion_termica'].notna().sum() == 0:
             return grupo_df_prop
         valor_presente = grupo_df_prop['condicion_termica'].dropna().iloc[0]
-        # Crear una copia para modificar de forma segura dentro del apply
+        
         grupo_df_mod = grupo_df_prop.copy()
         grupo_df_mod['condicion_termica'] = valor_presente
         return grupo_df_mod
 
-    # Asegurar que 'condicion_termica', 'fecha' y 'grupo' existan en df_CT
+    
     required_cols_prop = ['condicion_termica', 'fecha', 'grupo']
     if not all(col in df_CT.columns for col in required_cols_prop):
         missing_str = ", ".join(list(set(required_cols_prop) - set(df_CT.columns)))
         print(f"Error: Faltan columnas ({missing_str}) para propagar condición térmica en df_CT.")
         return df_a_modificar
     
-    # Convertir fecha a datetime si no lo es
+    
     df_CT['fecha'] = pd.to_datetime(df_CT['fecha'], errors='coerce')
     df_CT.dropna(subset=['fecha'], inplace=True)
 
@@ -606,18 +573,18 @@ def condicion_termica(df_principal, db_engine_param):
     df_CT = df_CT.groupby(['fecha', 'grupo'], group_keys=False).apply(propagar_condicion).reset_index(drop=True)
 
     # --- PASO 2: Calcular ---
-    def calcular_condicion(grupo_df_calc_input): # Renombrado para evitar conflicto
-        grupo_df_calc = grupo_df_calc_input.copy() # Trabajar sobre copia
+    def calcular_condicion(grupo_df_calc_input): 
+        grupo_df_calc = grupo_df_calc_input.copy() 
 
         grupo_df_calc = grupo_df_calc.sort_values('z').reset_index(drop=True)
         
-        # Si ya tiene valor, no recalculamos
+       
         if 'condicion_termica' in grupo_df_calc.columns and grupo_df_calc['condicion_termica'].notna().all():
             return grupo_df_calc
         
-        # Si no hay al menos dos puntos válidos, dejar como NaN
+       
         if grupo_df_calc['valor'].notna().sum() < 2 or grupo_df_calc['z'].notna().sum() < 2:
-            grupo_df_calc['condicion_termica'] = np.nan # Asignar NaN al grupo
+            grupo_df_calc['condicion_termica'] = np.nan 
             return grupo_df_calc
         
         temp_dif = grupo_df_calc['valor'].diff().abs().round(1)
@@ -639,28 +606,23 @@ def condicion_termica(df_principal, db_engine_param):
                     grupo_df_calc['condicion_termica'] = 'INDETERMINACION'
                     return grupo_df_calc
 
-        # Si no se cumplió ninguna condición en el bucle, se considera mezcla
+        
         grupo_df_calc['condicion_termica'] = 'MEZCLA'
         return grupo_df_calc
 
-    # Aplicar cálculo
-    # Asegurar columnas necesarias
+  
     df_CT = df_CT.groupby(['fecha', 'grupo']).apply(calcular_condicion).reset_index(drop=True)
 
-    # --- Parte final: unir con df_a_modificar ---
-    # Creamos diccionario con las condiciones calculadas que NO son nulas
     cond_term_dict = df_CT.dropna(subset=['condicion_termica'])[['id_registro', 'condicion_termica']].drop_duplicates()
     cond_term_dict = cond_term_dict.set_index('id_registro')['condicion_termica'].to_dict()
 
-    # Aplicar reemplazo solo donde df_final tiene NaN en 'condicion_termica'
+    
     df_a_modificar['condicion_termica'] = df_a_modificar.apply(
         lambda row: cond_term_dict.get(row['id_registro'], row['condicion_termica']) if pd.isna(row['condicion_termica']) else row['condicion_termica'],
         axis=1
     )
 
     return df_a_modificar
-
-# CARGA Y RECARGA DE MODELOS
 
 # =======================================================================
 # --- CARGA DE MODELOS Y ARTEFACTOS AL INICIO DE LA APP ---
@@ -696,7 +658,7 @@ def recargar_modelos():
 
             try:
                 artefactos = joblib.load(pkl_path)
-                # Si hay un modelo Keras separado, lo cargamos también
+               
                 if os.path.exists(keras_path):
                     artefactos['modelo'] = tf.keras.models.load_model(keras_path)
                 temp[target][sitio] = artefactos
@@ -704,7 +666,6 @@ def recargar_modelos():
             except Exception as e:
                 print(f"  ❌ Error cargando {sitio}-{target}: {e}")
 
-    # Una vez construido todo el dict sin errores, actualizamos la variable global
     with modelos_lock:
         global modelos_cargados
         modelos_cargados = temp
@@ -715,8 +676,8 @@ def recargar_modelos():
 
 proceso_lock = threading.Lock()
 proceso_status = {
-    "running": False,        # Indica si ya hay un proceso en ejecución
-    "message": "Inactivo"    # Mensaje de estado, útil para exponer vía /get-status
+    "running": False,        
+    "message": "Inactivo"    
 }
 modelos_lock = threading.Lock()
 modelos_cargados = {}
@@ -746,7 +707,7 @@ def database_listener(stop_event=None, test_db_params=None):
     Función del listener, ahora configurable para poder usar una base de datos de prueba.
     """
     if test_db_params:
-        # Si la prueba nos da parámetros, los usamos.
+        
         print(f"LISTENER: Usando parámetros de BD de prueba: {test_db_params['dbname']}")
         conn_string = (
             f"dbname='{test_db_params['dbname']}' "
@@ -756,11 +717,10 @@ def database_listener(stop_event=None, test_db_params=None):
             f"port='{test_db_params['port']}'"
         )
     else:
-        # Si no, usa los parámetros globales de producción como antes.
+
         print(f"LISTENER: Usando parámetros de BD de producción: {nombre_base_datos}")
         conn_string = f"dbname='{nombre_base_datos}' user='{usuario}' password='{contraseña}' host='{host}' port='{puerto}'"
 
-    # El resto de la función se mantiene igual, pero ahora usa el conn_string correcto.
     while True:
         if stop_event and stop_event.is_set():
             print("LISTENER: Evento de parada recibido, terminando hilo.")
@@ -785,7 +745,7 @@ def database_listener(stop_event=None, test_db_params=None):
                 while conn.notifies:
                     notification = conn.notifies.pop(0)
                     logging.info(f"LISTENER: Notificación recibida en '{notification.channel}'")
-                    actualizar_df() # Llamamos a la función de actualización
+                    actualizar_df() 
 
         except (psycopg2.OperationalError, psycopg2.InterfaceError) as e:
             logging.warning(f"LISTENER: Error de conexión: {e}. Reconectando en 5 segundos...")
@@ -799,8 +759,6 @@ def actualizar_df():
     Función "trabajadora". Llama al pipeline pesado y guarda el resultado.
     Se ejecuta en un hilo para no bloquear al listener o a la app.
     """
-    # with app.app_context() es una buena práctica para que el hilo
-    # tenga acceso al contexto de la aplicación si fuera necesario.
     
     with app.app_context():
         print("WORKER: Iniciando `generar_dataframe_procesado()`...")
@@ -858,7 +816,7 @@ def reentrenar_modelos():
     except subprocess.CalledProcessError as e:
         print("WORKER ERROR: El retraining falló:")
         print(e.stderr)
-        # opcional: re-lanzar o marcar error según tu lógica
+      
 
 # PREDICCION
 
@@ -878,7 +836,7 @@ def hacer_prediccion_para_sitio(sitio: str) -> dict:
         resultado['error'] = "No hay datos históricos"
         return resultado
 
-    # 2) Preprocesar TODO el histórico
+    # 2) Preprocesar el histórico
     df_proc = preprocess_and_feature_engineer(df_raw)
 
     if df_proc.empty:
@@ -938,17 +896,15 @@ def hacer_prediccion_para_sitio(sitio: str) -> dict:
             )
             logging.info(f"Predicción para {sitio}/{target} guardada en la base de datos.")
         except Exception as e:
-            # Si falla el guardado, solo lo informamos y continuamos. No debe detener la app.
+         
             logging.error(f"FALLO AL GUARDAR PREDICCIÓN para {sitio}/{target}: {e}")
         
 
-        # 7) Construir el diccionario de respuesta enriquecido
         resultado[target] = {
             'prediccion': etiqueta_predicha,
             'modelo_usado': model_info.get('modelo', 'N/D'),
             'f1_score_cv': round(model_info.get('f1_macro_cv', 0), 4),
             'roc_auc_cv': round(model_info.get('roc_auc_cv', 0), 4),
-            # Convertimos los params a string por si contienen tipos no serializables a JSON
             'hiperparametros': str(model_info.get('best_params', {}))
         }
 
@@ -972,9 +928,9 @@ def guardar_prediccion_historica(codigo_perfil, fecha_prediccion, target, clase_
     """)
     params = {
         'codigo_perfil':    str(codigo_perfil),
-        'fecha_prediccion': fecha_prediccion,                      # datetime.date está bien
+        'fecha_prediccion': fecha_prediccion,                    
         'target':           str(target),
-        'clase_alerta':     int(clase_alerta),                     # <- aquí el cast
+        'clase_alerta':     int(clase_alerta),                     
         'etiqueta_predicha': str(etiqueta_predicha)
     }
     with engine3.begin() as conn:
@@ -1024,7 +980,7 @@ def ver_datos():
 
     except Exception as e:
         print(f"Error al leer la tabla '{nombre_tabla}' desde engine3: {e}")
-        # Devolver una respuesta de error JSON válida
+        
         return jsonify({'error': 'No se pudieron obtener los datos del servidor.'}), 500
 
 #consulta tabla de predicciones_historicas de model_data
@@ -1045,7 +1001,7 @@ def ver_predicciones():
 
     except Exception as e:
         print(f"Error al leer la tabla '{nombre_tabla}' desde engine3: {e}")
-        # Devolver una respuesta de error JSON válida
+        
         return jsonify({'error': 'No se pudieron obtener los datos del servidor.'}), 500
 
 #opcion de actualización forzada, no implementada
@@ -1055,7 +1011,7 @@ def ejecutar_actualizacion():
     # Llama a la misma función 'actualizar_df' pero en un hilo separado
     thread = threading.Thread(target=actualizar_df)
     thread.start()
-    # Devuelve una respuesta INMEDIATA al frontend
+    
     return jsonify({'message': 'Proceso de actualización manual iniciado en segundo plano.'}), 202
 
 #predicción
@@ -1078,20 +1034,55 @@ def get_metricas_historicas():
     Devuelve todo el historial de métricas de entrenamiento.
     """
     try:
-        # Ordenamos por fecha para que el gráfico tenga sentido cronológico
+        
         query = "SELECT * FROM entrenamientos_historicos ORDER BY timestamp_entrenamiento ASC"
         df = pd.read_sql(query, engine3)
         
-        # Convertir NaT (Not a Time) a None para que sea compatible con JSON
         df_serializable = df.replace({pd.NaT: None})
         
-        # Convertir a formato JSON
         data = df_serializable.to_dict(orient='records')
         
         return jsonify(data)
     except Exception as e:
         print(f"Error al obtener métricas históricas: {e}")
         return jsonify({'error': 'No se pudieron obtener los datos de monitorización.'}), 500
+
+def check_and_train_initial_models():
+    """
+    Verifica si los modelos existen al arrancar. Si no, lanza el entrenamiento
+    y actualiza el estado de la aplicación para notificar al frontend.
+    (Versión corregida y segura para concurrencia)
+    """
+    modelos_dir = "modelos_entrenados"
+    min_artefactos_esperados = 28
+    debe_reentrenar = True
+
+    if os.path.isdir(modelos_dir):
+        num_archivos = len([f for f in os.listdir(modelos_dir) if os.path.isfile(os.path.join(modelos_dir, f))])
+        if num_archivos >= min_artefactos_esperados:
+            print(f"INFO: Carpeta '{modelos_dir}' encontrada con {num_archivos} archivos. Cargando modelos existentes...")
+            debe_reentrenar = False
+        else:
+            print(f"INFO: Carpeta '{modelos_dir}' encontrada, pero tiene solo {num_archivos} archivos. Se forzará el reentrenamiento.")
+    else:
+        print(f"INFO: La carpeta '{modelos_dir}' no existe. Iniciando primer entrenamiento automático...")
+
+    if debe_reentrenar:
+        with status_lock:
+            APP_STATUS['is_retraining'] = True
+        
+        try:
+            print("Iniciando ciclo de entrenamiento inicial...")
+            reentrenar_modelos()
+            recargar_modelos()
+        except Exception as e:
+            print(f"ERROR: Falló el entrenamiento automático inicial: {e}")
+        finally:
+            print("INFO: Proceso inicial finalizado. Actualizando estado a 'idle'...")
+            with status_lock:
+                APP_STATUS['is_retraining'] = False
+    else:
+        recargar_modelos()
 
 
 #  INICIO DE LA APLICACIÓN 
@@ -1100,7 +1091,5 @@ listener_thread = threading.Thread(target=database_listener, daemon=True)
 listener_thread.start()
 
 if __name__ == '__main__':
-    modelos_dir = "modelos_entrenados"
-    reentrenar_modelos()
-    recargar_modelos()
+    check_and_train_initial_models()
     app.run(host='0.0.0.0', port=5001, debug=True, use_reloader=False)

@@ -94,7 +94,63 @@ function AboutPage() {
                   <strong>Emergencia:</strong> Se pronostica que los niveles superarán umbrales críticos, con alta probabilidad de una floración algal intensa. Requiere acciones inmediatas.
                 </div>
               </div>
+              {/* Item No dominante */}
+              <div className="legend-item">
+                <span className="legend-color green"></span>
+                <div className="legend-text">
+                  <strong>No Dominante:</strong> Se pronostica que el porcentaje de dominancia de cianobacterias sobre el total de algas no superara el 50%.
+                </div>
+              </div>
+              {/* Item Dominante */}
+              <div className="legend-item">
+                <span className="legend-color red"></span>
+                <div className="legend-text">
+                  <strong>Dominante:</strong>Se pronostica que el porcentaje de dominancia de cianobacterias sobre el total de algas superara el 50%.
+                </div>
+              </div>
             </div>
+            <div className="threshold-title">Umbrales de Referencia</div>
+          <table className="threshold-table">
+            <thead>
+              <tr>
+                <th></th>
+                <th className="th-vigilancia">Vigilancia</th>
+                <th className="th-alerta1">Alerta</th>
+                <th className="th-alerta2">Emergencia</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Clorofila a</strong></td>
+                <td>&lt;10 µg/L</td>
+                <td>10-24 µg/L</td>
+                <td>&gt;24 µg/L</td>
+              </tr>
+              <tr>
+                <td><strong>Cianobacterias Totales</strong></td>
+                <td>&lt;5.000 cel/mL</td>
+                <td>5.000 - 60.000 cel/mL</td>
+                <td>&gt;60.000 cel/mL</td>
+              </tr>
+            </tbody>
+          </table>
+          <table className="threshold-table">
+            <thead>
+              <tr>
+                <th></th>
+                <th className="th-vigilancia">No Dominante</th>
+                <th className="th-alerta2">Dominante</th>
+                
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Dominancia de Cianobacterias</strong></td>
+                <td>&lt;50%</td>
+                <td>&gt;=50%</td>
+              </tr>
+            </tbody>
+          </table>
           </div>
         </div>
         <div className="legend">

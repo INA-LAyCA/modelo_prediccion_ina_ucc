@@ -1,6 +1,6 @@
 # .dockerignore
 
-# Ignorar la carpeta de modelos entrenados. ¡Este es el paso clave!
+# Ignorar la carpeta de modelos entrenados
 modelos_entrenados/
 
 # Ignorar archivos y carpetas de Python
@@ -15,5 +15,4 @@ new_vevnv/
 .idea/
 .DS_Store
 
-# Ignorar dependencias de Node.js si las hubiera en la raíz
 node_modules/
