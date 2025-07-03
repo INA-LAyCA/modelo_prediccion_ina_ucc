@@ -18,6 +18,7 @@ body {
   margin: 0;      
   
  
+
   font-size: 28px;     
   font-weight: bold;    
   color: #105989;  
@@ -38,7 +39,7 @@ body {
 
 .h2 {
   color: #005b96;
-  font-size: 1.5em; /* Un poco más grande para darle jerarquía */
+  font-size: 1.5em; 
   margin-top: 0; 
   margin-bottom: 0;
 }
@@ -70,7 +71,7 @@ body {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20px;
-  flex-wrap: wrap; /* Para que se adapte en pantallas pequeñas */
+  flex-wrap: wrap; 
 }
 
 .prediction-header h3 {
@@ -91,7 +92,7 @@ body {
   color: #005b96;
 }
 
-/* Estilos para el botón principal */
+
 .primary-button {
   background-color: #005b96;
   color: white;
