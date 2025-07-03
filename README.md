@@ -95,15 +95,3 @@ src/App.js:
 
 /modelos_entrenados: Carpeta de modelos .pkl y .keras listos para predicción.
 
-
-Puesta en Marcha
-
-Backend (tf.py)
-1. python3 tf.py
-
-Frontend
-
-cd prediccion-ina-app/
-npm install
-npm start
-
