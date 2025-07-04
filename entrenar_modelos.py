@@ -13,7 +13,25 @@ from tensorflow.keras.callbacks import EarlyStopping
 import keras_tuner as kt
 import warnings
 import os
-import io
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2' 
+os.environ['PYTHONHASHSEED'] = '42'
+os.environ['TF_DETERMINISTIC_OPS'] = '1'
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
+import numpy as np
+import random
+import tensorflow as tf
+
+# Controlar número de threads en TensorFlow
+tf.config.threading.set_intra_op_parallelism_threads(1)
+tf.config.threading.set_inter_op_parallelism_threads(1)
+
+SEED = 42
+np.random.seed(SEED)
+tf.random.set_seed(SEED)
+random.seed(SEED)
+
 from sqlalchemy import create_engine, text
 import joblib
 
@@ -31,10 +49,6 @@ warnings.filterwarnings("ignore", category=UserWarning, module='sklearn')
 warnings.filterwarnings("ignore", category=pd.errors.PerformanceWarning)
 tf.get_logger().setLevel('ERROR')
 
-SEED = 42
-os.environ['PYTHONHASHSEED'] = str(SEED)
-np.random.seed(SEED)
-tf.random.set_seed(SEED)
 
 SITIOS_A_ANALIZAR = ['C1', 'TAC1', 'TAC4', 'DSA1', 'DCQ1']
 N_FEATURES_A_SELECCIONAR = 25
@@ -319,7 +333,8 @@ def train_evaluate_mlp(X, y, sitio, target_name, tuner_dir):
             
             project_name=f'kt_{sitio}_{target_name}',
             
-            overwrite=True
+            overwrite=True,
+            seed=SEED
         )
         tuner.search(
             X_tr_s, y_tr, epochs=NN_EPOCHS_TUNER,
