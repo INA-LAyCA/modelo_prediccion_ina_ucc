@@ -7,7 +7,7 @@ services:
   backend:
     build: .
     image: mi_app_backend:latest
-    container_name: mi_app_backend
+    container_name: modelo_prediccion_backend
     ports:
       - "5001:5001"
     # Reinicia el contenedor automáticamente si falla
@@ -17,7 +17,7 @@ services:
   frontend:
     build: ./prediccion-ina-app
     image: mi_app_frontend:latest
-    container_name: mi_app_frontend
+    container_name: modelo_prediccion_frontend
     ports:
       - "3000:80"
     # El frontend depende del backend. Esto asegura que el backend se inicie primero.
