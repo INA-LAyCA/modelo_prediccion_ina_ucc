@@ -163,7 +163,7 @@ export function Predict() {
     <div className="container">
       <button onClick={() => navigate('/')} className="back-button">&larr;</button>
       <img src={logo} alt="Logo" className="logo2" />
-      <h2>Realizar Predicción</h2>
+      <h1>Realizar Predicción</h1>
       
       <div className="predict-controls">
         <select
@@ -321,7 +321,7 @@ function Datos() {
     <div className="container">
       <div className="page-header">
         <button onClick={() => navigate('/')} className="back-button">&larr;</button>
-        <h2>Tabla de Datos Procesados</h2>
+        <h1>Tabla de Datos Procesados</h1>
       </div>
       
       <div className="filters-container">
@@ -483,7 +483,7 @@ function Predicciones() {
     <div className="container">
       <div className="page-header">
         <button onClick={() => navigate('/')} className="back-button">&larr;</button>
-        <h2>Historial de predicciones</h2>
+        <h1>Historial de predicciones</h1>
       </div>
       
       <div className="filters-container">
