@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
+import './App.css';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { useNavigate } from 'react-router-dom';
 
@@ -54,7 +55,9 @@ function ModelMonitor() {
         <div className="container">
             <button onClick={() => navigate('/')} className="back-button">&larr;</button>
             <h2>Evolución del Rendimiento de Modelos</h2>
-            
+            <p className="descripcion-monitor"> El ciclo de vida del modelo incluye un re-entrenamiento automático con el ingreso de nuevos datos. 
+                Es por eso, que es necesario realizar un seguimiento continuo de su rendimiento. 
+                Esta solapa proporciona las herramientas para monitorear la evolución de las métricas, para asegurar la fiabilidad y/o detectar posibles degradaciones en el tiempo.</p>
             <div className="filters-container" style={{ margin: '20px 0' }}>
                 <select value={selectedSitio} onChange={(e) => setSelectedSitio(e.target.value)}>
                     <option value="">Seleccione un Sitio</option>
@@ -77,6 +80,7 @@ function ModelMonitor() {
                             <Legend />
                             <Line type="monotone" dataKey="f1_score_cv" name="F1-Score (CV)" stroke="#8884d8" activeDot={{ r: 8 }} />
                             <Line type="monotone" dataKey="roc_auc_cv" name="ROC AUC (CV)" stroke="#82ca9d" />
+                            <Line type="monotone" dataKey="precision_weighted_cv" name="Precision Weighted (CV)" stroke="#004d73" />
                         </LineChart>
                     </ResponsiveContainer>
                 </div>

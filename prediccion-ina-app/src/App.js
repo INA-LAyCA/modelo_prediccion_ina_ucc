@@ -5,20 +5,41 @@ import './App.css';
 import logo from './logo.png';
 import AboutPage from './AboutPage';
 import ModelMonitor from './ModelMonitor';
+import { Line } from 'react-chartjs-2';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+} from 'chart.js';
+import annotationPlugin from 'chartjs-plugin-annotation';
 
-
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+  annotationPlugin // <-- Registrar el plugin para las franjas de colores
+);
 
 // Componente de pantalla de inicio
-function Home({ onPredictStart, onDataStart, onPredictionsStart, onAboutStart, onMonitorStart }) {
+function Home({ onAboutStart, onPredictStart, onDataStart, onPredictionsStart, onMonitorStart }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
       <img src={logo} alt="Logo" className="logo1" />
-      <h1>MODELO DE PREDICCIÓN - INA CIRSA</h1>
+      <h1>Modelo de Predicción de Calidad de Agua para el ESR-INA-SCIRSA</h1>
       <div style={{ display: 'flex', gap: '20px', marginTop: '20px' }}>
-        <button onClick={onPredictStart} className="primary-button">Predecir</button>
-        <button onClick={onDataStart} className="primary-button">Ver Datos</button>
-        <button onClick={onPredictionsStart} className="primary-button">Ver Predicciones</button>
         <button onClick={onAboutStart} className="primary-button">Acerca del Modelo</button>
+        <button onClick={onDataStart} className="primary-button">Ver Datos</button>
+        <button onClick={onPredictStart} className="primary-button">Predecir</button>
+        <button onClick={onPredictionsStart} className="primary-button">Ver Predicciones</button>
         <button onClick={onMonitorStart} className="primary-button">Monitorear Modelos</button>
         
       </div>
@@ -61,6 +82,7 @@ function PredictionDetails({ targetName, data }) {
       <div className="metrics">
         <span><strong>Modelo:</strong> {data.modelo_usado || 'N/D'}</span>
         <span><strong>F1 (CV):</strong> {data.f1_score_cv || 'N/D'}</span>
+        <span><strong>Precision Weighted (CV):</strong> {data.precision_weighted_cv || 'N/D'}</span>
         <span><strong>ROC AUC (CV):</strong> {data.roc_auc_cv || 'N/D'}</span>
       </div>
     </li>
@@ -76,6 +98,10 @@ export function Predict() {
   const [activeTab, setActiveTab] = useState(null);
   const [isLoading, setIsLoading] = useState(false); // feedback de carga
   const navigate = useNavigate();
+  
+  const [historicalData, setHistoricalData] = useState(null);
+  const [showGraph, setShowGraph] = useState(false); // Para controlar el desplegable
+
 
   // Carga las opciones del desplegable
   useEffect(() => {
@@ -102,9 +128,13 @@ export function Predict() {
       setActiveTab(selectedOption);
       return;
     }
+    
 
     setIsLoading(true); // Activa el estado de carga
     try {
+      setShowGraph(false);
+      setHistoricalData(null);
+
       const response = await axios.post('/api/predict', {
         option: selectedOption,
       });
@@ -121,6 +151,18 @@ export function Predict() {
       } else {
         setPredictionResult(prevResults => [...prevResults, ...newPredictions]);
         setActiveTab(newPredictions[0].option);
+      }
+
+      if (selectedOption !== 'Todos') {
+        try {
+          const historyResponse = await axios.get('http://localhost:5001/historical-data', {
+            params: { sitio: selectedOption }
+          });
+          setHistoricalData(historyResponse.data);
+        } catch (historyError) {
+          console.error("Error al obtener datos históricos:", historyError);
+          setHistoricalData([]); // Poner un array vacío en caso de error
+        }
       }
 
     } catch (error) {
@@ -163,7 +205,7 @@ export function Predict() {
     <div className="container">
       <button onClick={() => navigate('/')} className="back-button">&larr;</button>
       <img src={logo} alt="Logo" className="logo2" />
-      <h1>Realizar Predicción</h1>
+      <h2>Realizar Predicción</h2>
       
       <div className="predict-controls">
         <select
@@ -243,20 +285,20 @@ function Datos() {
     { accessor: 'fecha', Header: 'Fecha' },
     { accessor: 'codigo_perfil', Header: 'Sitio' },
     { accessor: 'estacion', Header: 'Estación' },
-    { accessor: 'Clorofila (µg/l)', Header: 'Clorofila (µg/L)' },
+    { accessor: 'Clorofila (µg/l)', Header: <>Clorofila a (µg/L)</>},
     { accessor: 'Cianobacterias Total', Header: 'Cianobacterias (cel/L)' },
     { accessor: 'Dominancia de Cianobacterias (%)', Header: 'Dominancia Ciano (%)' },
-    { accessor: 'Nitrogeno Inorganico Total (µg/l)', Header: 'Nitrógeno Total (µg/L)' },
+    { accessor: 'Nitrogeno Inorganico Total (µg/l)', Header: 'Nitrógeno Inórganico Total (µg/L)' },
     { accessor: 'T° (°C)', Header: 'Temp. Agua (°C)' },
     { accessor: 'condicion_termica', Header: 'Condición Térmica' },
     { accessor: 'Cota (m)', Header: 'Cota (m)' },
     { accessor: 'PHT (µg/l)', Header: 'PHT (µg/l)' },
     { accessor: 'PRS (µg/l)', Header: 'PRS (µg/l)' },
-    { accessor: 'temperatura_min', Header: 'Temperatura Minima' },
-    { accessor: 'temperatura_max', Header: 'Temperatura Maxima' },
-    { accessor: '600', Header: '600 Bo El Canal' },
-    { accessor: '700', Header: '700 Confluencia el Cajon' },
-    { accessor: '1100', Header: '1100 CIRSA Villa Carlos Paz' }
+    { accessor: 'temperatura_min', Header: 'Temp. Aire Min (°C)' },
+    { accessor: 'temperatura_max', Header: 'Temp. Aire Max (°C)' },
+    { accessor: '600', Header: 'Estación 600 (mm) - Acumulación de 3 días' },
+    { accessor: '700', Header: 'Estación 700 (mm) - Acumulación de 3 días' },
+    { accessor: '1100', Header: 'Estación 1100 (mm) - Acumulación de 3 días' }
     
   ], []);
 
@@ -317,6 +359,32 @@ function Datos() {
     return buttons;
   };
 
+  
+
+  const formatTableCell = (value, columnAccessor) => {
+    // Si el valor es nulo o indefinido, devolver un string vacío
+    if (value === null || typeof value === 'undefined') {
+      return "";
+    }
+    if (typeof value !== 'number') {
+      return String(value); // Devuelve strings o cualquier otro tipo tal cual
+    }
+    switch (columnAccessor) {
+      case 'Clorofila (µg/l)':
+        return value.toFixed(0); 
+      case 'PHT (µg/l)':
+        return value.toFixed(0);
+      case 'PRS (µg/l)':
+        return value.toFixed(0);
+        case 'Nitrogeno Inorganico Total (µg/l)':
+        return value.toFixed(1);
+      // Caso por defecto para otros números
+      default:
+        // Si es un número con decimales, lo formatea, si no, lo deja como está
+        return (value % 1 !== 0) ? value.toFixed(2) : String(value);
+    }
+  };
+
   return (
     <div className="container">
       <div className="page-header">
@@ -361,7 +429,7 @@ function Datos() {
                     <td key={`${index}-${columna.accessor}`}>
                       {columna.accessor === 'fecha'
                         ? formatDate(row[columna.accessor])
-                        : (row[columna.accessor] === null ? "" : String(row[columna.accessor]))
+                        :formatTableCell(row[columna.accessor], columna.accessor)
                       }
                     </td>
                   ))}
@@ -408,7 +476,7 @@ function Predicciones() {
     { accessor: 'fecha_prediccion', Header: 'Fecha de Predicción' },
     { accessor: 'codigo_perfil', Header: 'Sitio' },
     { accessor: 'target', Header: 'Variable' },
-    { accessor: 'etiqueta_predicha', Header: 'Etiqueta' }
+    { accessor: 'etiqueta_predicha', Header: 'Clasificación' }
 ], []);
 
   useEffect(() => {
@@ -496,7 +564,7 @@ function Predicciones() {
               {targetOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
           </select>
           <select className="filter-select" value={filterAlerta} onChange={(e) => setFilterAlerta(e.target.value)}>
-              <option value="">Todas las Alertas</option>
+              <option value="">Todas las Clasificaciones</option>
               {alertaOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
           </select>
           <select className="filter-select" value={filterAnio} onChange={(e) => setFilterAnio(e.target.value)}>
@@ -601,7 +669,119 @@ function App() {
   );
 }
 
+function PredictionChart({ historicalData, prediction }) {
+  // Función para convertir la etiqueta de predicción a un valor numérico para el gráfico
+  const predictionToValue = (label) => {
+    if (label.includes('Vigilancia')) return 5; // Punto medio del rango verde
+    if (label.includes('Alerta 1')) return 17; // Punto medio del rango amarillo
+    if (label.includes('Alerta 2')) return 30; // Un valor representativo del rango rojo
+    return null;
+  };
 
+  const labels = historicalData.map(d => new Date(d.fecha).toLocaleDateString('es-AR'));
+  const historicalValues = historicalData.map(d => d['Clorofila (µg/l)']);
+  
+  // Añadir el punto de la predicción al final
+  const lastDate = new Date(historicalData[historicalData.length - 1]?.fecha);
+  if (lastDate) {
+    lastDate.setMonth(lastDate.getMonth() + 1);
+    labels.push(`Predicción ${lastDate.toLocaleDateString('es-AR')}`);
+  }
+  
+  const predictionLabel = prediction?.Clorofila?.prediccion;
+  const predictedValue = predictionToValue(predictionLabel);
+
+  const data = {
+    labels: labels,
+    datasets: [
+      {
+        label: 'Clorofila Histórica (µg/l)',
+        data: historicalValues,
+        borderColor: 'rgb(0, 77, 115)', // Azul oscuro de tu CSS
+        backgroundColor: 'rgba(0, 77, 115, 0.5)',
+        tension: 0.1,
+      },
+      {
+        label: 'Predicción',
+        data: [...historicalValues.map(() => null), predictedValue], // Poner nulls para que solo aparezca el último punto
+        pointStyle: 'star',
+        pointRadius: 10,
+        pointBackgroundColor: 'red',
+        borderColor: 'transparent', // Sin línea para este dataset
+      },
+    ],
+  };
+
+  const options = {
+    responsive: true,
+    plugins: {
+      legend: {
+        position: 'top',
+      },
+      title: {
+        display: true,
+        text: `Historial y Predicción de Clorofila para ${prediction.codigo_perfil}`,
+        color: '#004d73',
+      },
+      
+      annotation: {
+        annotations: {
+          redZone: {
+            type: 'box',
+            yMin: 24,
+            yMax: Math.max(35, ...historicalValues.filter(v => v).map(v => v*1.1)), // Límite superior dinámico
+            backgroundColor: 'rgba(255, 99, 132, 0.25)',
+            borderColor: 'rgba(255, 99, 132, 0.1)',
+            label: {
+              content: 'Emergencia (> 24)',
+              display: true,
+              position: 'start',
+              color: 'rgba(255, 99, 132, 0.8)'
+            }
+          },
+          yellowZone: {
+            type: 'box',
+            yMin: 10,
+            yMax: 24,
+            backgroundColor: 'rgba(255, 205, 86, 0.25)',
+            borderColor: 'rgba(255, 205, 86, 0.1)',
+             label: {
+              content: 'Alerta (10-24)',
+              display: true,
+              position: 'start',
+              color: 'rgba(255, 205, 86, 0.8)'
+            }
+          },
+          greenZone: {
+            type: 'box',
+            yMin: 0,
+            yMax: 10,
+            backgroundColor: 'rgba(75, 192, 192, 0.25)',
+            borderColor: 'rgba(75, 192, 192, 0.1)',
+             label: {
+              content: 'Vigilancia (< 10)',
+              display: true,
+              position: 'start',
+              color: 'rgba(75, 192, 192, 0.8)'
+            }
+          }
+        }
+      }
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        title: {
+          display: true,
+          text: 'Clorofila (µg/l)',
+          color: '#004d73'
+        }
+      }
+    }
+  };
+
+  return <Line options={options} data={data} />;
+}
 
 function RetrainingOverlay() {
   const overlayStyle = {

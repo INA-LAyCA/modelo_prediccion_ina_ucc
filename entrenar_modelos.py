@@ -4,7 +4,7 @@ import tensorflow as tf
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import f1_score, roc_auc_score
+from sklearn.metrics import f1_score, roc_auc_score, precision_score
 from sklearn.model_selection import TimeSeriesSplit, GridSearchCV
 from sklearn.feature_selection import SelectKBest, mutual_info_classif
 from tensorflow.keras.models import Sequential
@@ -270,9 +270,11 @@ def train_evaluate_sklearn(X, y, sitio, target_name):
             grid.fit(Xs, y)
             best = grid.best_params_
             print(f"  -> {name}: Mejores Parámetros: {best}")
-            f1s, rocs = [], []
+            
+            f1s, rocs, precs = [], [], []
             tscv = TimeSeriesSplit(n_splits=N_SPLITS_CV_EVAL)
             model = tmpl.set_params(**best)
+            
             for tr, te in tscv.split(X):
                 X_tr, X_te = X.iloc[tr], X.iloc[te]
                 y_tr, y_te = y.iloc[tr], y.iloc[te]
@@ -281,16 +283,20 @@ def train_evaluate_sklearn(X, y, sitio, target_name):
                 Xtr_s, Xte_s = sf.transform(X_tr), sf.transform(X_te)
                 model.fit(Xtr_s, y_tr)
                 y_pred = model.predict(Xte_s)
+
                 f1s.append(f1_score(y_te, y_pred, average='macro', zero_division=0))
+                precs.append(precision_score(y_te, y_pred, average='weighted', zero_division=0))
+
                 roc = np.nan
-                if hasattr(model, 'predict_proba') and y_te.nunique()>1:
+                if hasattr(model, 'predict_proba') and y_te.nunique() > 1:
                     probs = model.predict_proba(Xte_s)
                     labels = np.unique(np.concatenate([y_tr, y_te]))
-                    if len(labels)>2:
+                    if len(labels) > 2:
                         roc = roc_auc_score(y_te, probs, multi_class='ovr', average='weighted', labels=labels)
                     else:
-                        roc = roc_auc_score(y_te, probs[:,1])
+                        roc = roc_auc_score(y_te, probs[:, 1])
                 rocs.append(roc)
+            
             if f1s:
                 results.append({
                     'sitio': sitio,
@@ -298,83 +304,101 @@ def train_evaluate_sklearn(X, y, sitio, target_name):
                     'modelo': name,
                     'f1_macro_cv': np.nanmean(f1s),
                     'roc_auc_cv': np.nanmean(rocs),
+                    'precision_weighted_cv': np.nanmean(precs),
                     'best_params': best
                 })
+
         except Exception as e:
             print(f"  -> ❌ ERROR en {name} para {sitio}/{target_name}: {e}")
     return pd.DataFrame(results)
 
 def train_evaluate_mlp(X, y, sitio, target_name, tuner_dir):
     print(f"--- Procesando MLP: Sitio {sitio}, Objetivo {target_name} ---")
-    if len(X) < 30 or y.nunique()<2:
+    if len(X) < 30 or y.nunique() < 2:
         return pd.DataFrame()
     try:
         tscv = TimeSeriesSplit(n_splits=2)
         train_val_idx, test_idx = list(tscv.split(X))[-1]
         X_tv, X_test = X.iloc[train_val_idx], X.iloc[test_idx]
         y_tv, y_test = y.iloc[train_val_idx], y.iloc[test_idx]
-        if X_tv.empty or y_tv.nunique()<2:
+
+        if X_tv.empty or y_tv.nunique() < 2:
             return pd.DataFrame()
+
         tscv2 = TimeSeriesSplit(n_splits=2)
         tr, val = list(tscv2.split(X_tv))[-1]
         X_tr, X_val = X_tv.iloc[tr], X_tv.iloc[val]
         y_tr, y_val = y_tv.iloc[tr], y_tv.iloc[val]
-        if X_tr.empty or y_tr.nunique()<2:
+
+        if X_tr.empty or y_tr.nunique() < 2:
             return pd.DataFrame()
+
         scaler = StandardScaler().fit(X_tr)
-        X_tr_s, X_val_s, X_test_s = scaler.transform(X_tr), scaler.transform(X_val), scaler.transform(X_test)
+        X_tr_s = scaler.transform(X_tr)
+        X_val_s = scaler.transform(X_val)
+        X_test_s = scaler.transform(X_test)
+
         num_classes = len(np.unique(y))
-        
+
         tuner = kt.RandomSearch(
             lambda hp: build_mlp_model_for_tuner(hp, X.shape[1], num_classes),
-            objective='val_accuracy', max_trials=KT_MAX_TRIALS_NN,
-            
+            objective='val_accuracy',
+            max_trials=KT_MAX_TRIALS_NN,
             directory=tuner_dir,
-            
             project_name=f'kt_{sitio}_{target_name}',
-            
             overwrite=True,
             seed=SEED
         )
+
         tuner.search(
-            X_tr_s, y_tr, epochs=NN_EPOCHS_TUNER,
+            X_tr_s, y_tr,
+            epochs=NN_EPOCHS_TUNER,
             validation_data=(X_val_s, y_val),
             callbacks=[EarlyStopping(monitor='val_loss', patience=5)],
             verbose=0
         )
+
         best_hps = tuner.get_best_hyperparameters(num_trials=1)[0]
         final = tuner.hypermodel.build(best_hps)
         final.fit(
-            np.vstack([X_tr_s, X_val_s]), np.concatenate([y_tr, y_val]),
+            np.vstack([X_tr_s, X_val_s]),
+            np.concatenate([y_tr, y_val]),
             epochs=NN_EPOCHS_FINAL_FIT,
             batch_size=NN_BATCH_SIZE,
             verbose=0
         )
+
         y_proba = final.predict(X_test_s, verbose=0)
         y_pred = np.argmax(y_proba, axis=1)
+
         f1 = f1_score(y_test, y_pred, average='macro', zero_division=0)
+        precision_weighted = precision_score(y_test, y_pred, average='weighted', zero_division=0)
+
         roc = np.nan
-        if y_test.nunique()>1:
+        if y_test.nunique() > 1:
             try:
                 labs = np.unique(np.concatenate([y_tv, y_test]))
-                if num_classes>2:
+                if num_classes > 2:
                     roc = roc_auc_score(y_test, y_proba, multi_class='ovr', average='weighted', labels=labs)
                 else:
-                    roc = roc_auc_score(y_test, y_proba[:,1])
+                    roc = roc_auc_score(y_test, y_proba[:, 1])
             except ValueError:
                 pass
-        return pd.DataFrame([{  
+
+        return pd.DataFrame([{
             'sitio': sitio,
             'target': target_name,
             'modelo': 'MLP',
             'f1_macro_cv': f1,
             'roc_auc_cv': roc,
+            'precision_weighted_cv': precision_weighted,
             'best_params': best_hps.values
         }])
+
     except Exception as e:
         print(f"  -> ❌ ERROR en MLP para {sitio}/{target_name}: {e}")
         return pd.DataFrame()
-
+    
 def seleccionar_mejor_modelo(df_results, sitio, objetivo):
     """
     Selecciona el mejor modelo basado en una jerarquía de métricas.
@@ -409,16 +433,18 @@ def guardar_metricas_entrenamiento(sitio, target, model_info):
     """
     sql = text("""
     INSERT INTO entrenamientos_historicos
-        (sitio, variable_objetivo, modelo_usado, f1_score_cv, roc_auc_cv, hiperparametros)
+        (sitio, variable_objetivo, modelo_usado, f1_score_cv, roc_auc_cv, precision_weighted_cv, hiperparametros)
     VALUES
-        (:sitio, :variable_objetivo, :modelo_usado, :f1_score_cv, :roc_auc_cv, :hiperparametros)
+        (:sitio, :variable_objetivo, :modelo_usado, :f1_score_cv, :roc_auc_cv, :precision_weighted_cv, :hiperparametros)
     """)
 
     f1_score_np = model_info.get('f1_macro_cv')
     roc_auc_np = model_info.get('roc_auc_cv')
+    precision_weighted_np = model_info.get('precision_weighted_cv')
 
     f1_score_py = float(f1_score_np) if pd.notna(f1_score_np) else None
     roc_auc_py = float(roc_auc_np) if pd.notna(roc_auc_np) else None
+    precision_weighted_py = float(precision_weighted_np) if pd.notna(precision_weighted_np) else None
 
     params = {
         'sitio': sitio,
@@ -426,6 +452,7 @@ def guardar_metricas_entrenamiento(sitio, target, model_info):
         'modelo_usado': model_info.get('modelo', 'N/D'),
         'f1_score_cv': f1_score_py, 
         'roc_auc_cv': roc_auc_py,  
+        'precision_weighted_cv': precision_weighted_py,
         'hiperparametros': str(model_info.get('best_params', {}))
     }
  
@@ -571,7 +598,7 @@ def main():
     if all_results:
         summary = pd.concat(all_results, ignore_index=True)
         print("\n\n📊📊📊 RESUMEN FINAL DE MÉTRICAS DE VALIDACIÓN CRUZADA 📊📊📊")
-        cols_to_show = ['target', 'sitio', 'modelo', 'f1_macro_cv', 'roc_auc_cv', 'best_params']
+        cols_to_show = ['target', 'sitio', 'modelo', 'f1_macro_cv', 'roc_auc_cv', 'precision_weighted_cv', 'best_params']
         summary_display = summary.reindex(columns=cols_to_show, fill_value='-')
         print(summary_display.sort_values(by=['target', 'sitio', 'f1_macro_cv'], ascending=[True, True, False]).to_string(index=False))
         

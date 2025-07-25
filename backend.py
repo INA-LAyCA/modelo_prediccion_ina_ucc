@@ -9,6 +9,7 @@ import time
 import psycopg2
 import logging
 import tensorflow as tf
+import math
 from sqlalchemy import create_engine
 from sqlalchemy import text
 from flask import Flask, request, jsonify
@@ -905,6 +906,7 @@ def hacer_prediccion_para_sitio(sitio: str) -> dict:
             'modelo_usado': model_info.get('modelo', 'N/D'),
             'f1_score_cv': round(model_info.get('f1_macro_cv', 0), 4),
             'roc_auc_cv': round(model_info.get('roc_auc_cv', 0), 4),
+            'precision_weighted_cv': round(model_info.get('precision_weighted_cv', 0), 4),
             'hiperparametros': str(model_info.get('best_params', {}))
         }
 
@@ -1047,6 +1049,45 @@ def get_metricas_historicas():
         print(f"Error al obtener métricas históricas: {e}")
         return jsonify({'error': 'No se pudieron obtener los datos de monitorización.'}), 500
 
+@app.route('/historical-data', methods=['GET'])
+def get_historical_data():
+    """
+    Devuelve el historial de fecha y Clorofila (µg/l) para un sitio específico,
+    ordenado por fecha.
+    Se pasa el sitio como un parámetro en la URL, ej: /historical-data?sitio=C1
+    """
+    sitio_seleccionado = request.args.get('sitio')
+
+    if not sitio_seleccionado:
+        return jsonify({'error': 'Parámetro "sitio" es requerido.'}), 400
+
+    nombre_tabla = 'dataframe'
+    # Consulta para obtener solo las columnas necesarias, ordenadas por fecha
+    query = f"""
+        SELECT fecha, "Clorofila (µg/l)" 
+        FROM {nombre_tabla}
+        WHERE codigo_perfil = %(sitio)s
+        ORDER BY fecha ASC;
+    """
+    
+    try:
+        # Usamos 'params' para una consulta segura contra inyección SQL
+        df_historial = pd.read_sql(query, engine3, params={'sitio': sitio_seleccionado})
+
+        if df_historial.empty:
+            return jsonify({'message': 'No hay datos históricos para este sitio.', 'data': []}), 200
+
+        # Convertir a JSON en formato ISO para que JavaScript lo entienda fácilmente
+        data = df_historial.to_json(orient='records', date_format='iso')
+        
+        # Flask jsonify puede manejar strings JSON directamente
+        return app.response_class(response=data, status=200, mimetype='application/json')
+
+    except Exception as e:
+        print(f"Error al leer datos históricos para '{sitio_seleccionado}': {e}")
+        return jsonify({'error': 'No se pudieron obtener los datos históricos del servidor.'}), 500
+
+
 def check_and_train_initial_models():
     """
     Verifica si los modelos existen al arrancar. Si no, lanza el entrenamiento
@@ -1054,7 +1095,7 @@ def check_and_train_initial_models():
     (Versión corregida y segura para concurrencia)
     """
     modelos_dir = "modelos_entrenados"
-    min_artefactos_esperados = 28
+    min_artefactos_esperados = 22
     debe_reentrenar = True
 
     if os.path.isdir(modelos_dir):

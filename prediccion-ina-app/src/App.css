@@ -1,5 +1,5 @@
 body {
-  font-family: Arial, sans-serif;
+  font-family: Arial, Roboto, sans-serif;
   background-color: #e0f7fa; /* Celeste claro */
   color: #004d73; /* Azul oscuro */
   margin: 0;
@@ -132,19 +132,20 @@ table {
   width: 100%;
   background-color: white;
   border: 1px solid #b3e5fc;
-  
+  font-family: Arial, sans-serif !important;
 }
 
 th, td {
   text-align: center;
   vertical-align: middle;
   border-right: 1px solid #e9ecef;
-  
+  font-family: Arial, sans-serif !important;
 }
 
 th:last-child,
 td:last-child {
   border-right: none;
+  font-family: Arial, sans-serif !important;
 }
 
 th {
@@ -153,9 +154,9 @@ th {
   color: #ffffff;
   font-weight: 600;
   font-size: 16px;
-  text-transform: uppercase;
   letter-spacing: 0.5px;
   border-bottom: 2px solid #dee2e6;
+  font-family: Arial, sans-serif !important;
 }
 
 td {
@@ -163,6 +164,7 @@ td {
   font-size: 16px;
   color: #343a40;
   border-bottom: 1px solid #e0f7fa;
+  font-family: Arial, sans-serif !important;
 }
 
 .prediction-container {
@@ -344,7 +346,7 @@ td {
   color: #555;
   border-top: 1px dashed #e0e0e0;
   padding-top: 10px;
-  display: flex;
+  display:flexbox;
   justify-content: space-between; 
   flex-wrap: wrap; 
 }
@@ -389,3 +391,16 @@ td {
   background-color: #dc3545;
 }
 
+.descripcion-monitor {
+  max-width: 1300px; /* Limita el ancho para una mejor legibilidad */
+  margin: 20px auto 40px auto; /* Centra el bloque y le da espacio vertical */
+  padding: 10px 5px; /* Espacio interno para que el texto respire */
+  text-align: justify; /* Centra el texto, que se ve mejor para párrafos cortos */
+  font-size: 1.1em; /* Un poco más grande que el texto normal */
+  line-height: 1; /* Aumenta mucho el espacio entre líneas, clave para la legibilidad */
+  color: #004d73; /* Un azul intermedio de tu paleta */
+  background-color: rgba(129, 195, 215, 0.1); /* Un fondo celeste muy sutil y traslúcido */
+  border-left: 4px solid #004d73; /* Un borde izquierdo de acento para darle énfasis */
+  border-radius: 0 8px 8px 0; /* Bordes redondeados solo en el lado derecho */
+ 
+}
