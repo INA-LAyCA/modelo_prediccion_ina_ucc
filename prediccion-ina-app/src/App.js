@@ -6,9 +6,6 @@ import logo from './logo.png';
 import AboutPage from './AboutPage';
 import ModelMonitor from './ModelMonitor';
 
-import annotationPlugin from 'chartjs-plugin-annotation';
-
-
 // Componente de pantalla de inicio
 function Home({ onAboutStart, onPredictStart, onDataStart, onPredictionsStart, onMonitorStart }) {
   return (
