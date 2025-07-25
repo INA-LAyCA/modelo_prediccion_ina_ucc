@@ -649,7 +649,6 @@ function App() {
   );
 }
 
-
 function RetrainingOverlay() {
   const overlayStyle = {
     position: 'fixed',

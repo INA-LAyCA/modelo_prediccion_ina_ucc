@@ -34,9 +34,9 @@ describe('Predict Component', () => {
     const mockPrediction = [{
       codigo_perfil: 'C1',
       fecha_prediccion: '2025-07-01T00:00:00', 
-      Clorofila: { prediccion: 'Alerta', modelo_usado: 'RandomForest', f1_score_cv: 0.8, roc_auc_cv: 0.9 },
-      Cianobacterias: { prediccion: 'Vigilancia', modelo_usado: 'MLP', f1_score_cv: 0.85, roc_auc_cv: 0.92 },
-      Dominancia: { prediccion: 'No Dominante', modelo_usado: 'LogisticRegression', f1_score_cv: 0.9, roc_auc_cv: 0.95 }
+      Clorofila: { prediccion: 'Alerta', modelo_usado: 'RandomForest', f1_score_cv: 0.8, roc_auc_cv: 0.9, precision_weighted_cv: 0.95 },
+      Cianobacterias: { prediccion: 'Vigilancia', modelo_usado: 'MLP', f1_score_cv: 0.85, roc_auc_cv: 0.92, precision_weighted_cv: 0.95 },
+      Dominancia: { prediccion: 'No Dominante', modelo_usado: 'LogisticRegression', f1_score_cv: 0.9, roc_auc_cv: 0.95, precision_weighted_cv: 0.95 }
     }];
 
     axios.get.mockResolvedValue({ data: mockOptions });
