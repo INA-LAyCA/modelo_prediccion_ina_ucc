@@ -67,14 +67,14 @@ describe('Flujo Principal de la Aplicación', () => {
       cy.contains('button', 'Ver Datos').click();
   
       cy.url().should('include', '/datos');
-      cy.contains('h2', 'Tabla de Datos Procesado');
+      cy.contains('h1', 'Tabla de Datos Procesado');
       
       cy.visit('http://localhost:3000');
   
       cy.contains('button', 'Ver Predicciones').click();
   
       cy.url().should('include', '/predicciones');
-      cy.contains('h2', 'Historial de predicciones');
+      cy.contains('h1', 'Historial de predicciones');
   
     });
   });
