@@ -1,31 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import './AboutPage.css'; 
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend,
-} from 'chart.js';
-import annotationPlugin from 'chartjs-plugin-annotation';
-
-// Registrar los componentes de Chart.js y el plugin una sola vez
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend,
-  annotationPlugin
-);
-
-
   
 const Icon = ({ children }) => (
   <div className="icon-container">{children}</div>
