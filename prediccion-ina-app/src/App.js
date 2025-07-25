@@ -5,29 +5,9 @@ import './App.css';
 import logo from './logo.png';
 import AboutPage from './AboutPage';
 import ModelMonitor from './ModelMonitor';
-import { Line } from 'react-chartjs-2';
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend,
-} from 'chart.js';
+
 import annotationPlugin from 'chartjs-plugin-annotation';
 
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend,
-  annotationPlugin // <-- Registrar el plugin para las franjas de colores
-);
 
 // Componente de pantalla de inicio
 function Home({ onAboutStart, onPredictStart, onDataStart, onPredictionsStart, onMonitorStart }) {
@@ -669,119 +649,6 @@ function App() {
   );
 }
 
-function PredictionChart({ historicalData, prediction }) {
-  // Función para convertir la etiqueta de predicción a un valor numérico para el gráfico
-  const predictionToValue = (label) => {
-    if (label.includes('Vigilancia')) return 5; // Punto medio del rango verde
-    if (label.includes('Alerta 1')) return 17; // Punto medio del rango amarillo
-    if (label.includes('Alerta 2')) return 30; // Un valor representativo del rango rojo
-    return null;
-  };
-
-  const labels = historicalData.map(d => new Date(d.fecha).toLocaleDateString('es-AR'));
-  const historicalValues = historicalData.map(d => d['Clorofila (µg/l)']);
-  
-  // Añadir el punto de la predicción al final
-  const lastDate = new Date(historicalData[historicalData.length - 1]?.fecha);
-  if (lastDate) {
-    lastDate.setMonth(lastDate.getMonth() + 1);
-    labels.push(`Predicción ${lastDate.toLocaleDateString('es-AR')}`);
-  }
-  
-  const predictionLabel = prediction?.Clorofila?.prediccion;
-  const predictedValue = predictionToValue(predictionLabel);
-
-  const data = {
-    labels: labels,
-    datasets: [
-      {
-        label: 'Clorofila Histórica (µg/l)',
-        data: historicalValues,
-        borderColor: 'rgb(0, 77, 115)', // Azul oscuro de tu CSS
-        backgroundColor: 'rgba(0, 77, 115, 0.5)',
-        tension: 0.1,
-      },
-      {
-        label: 'Predicción',
-        data: [...historicalValues.map(() => null), predictedValue], // Poner nulls para que solo aparezca el último punto
-        pointStyle: 'star',
-        pointRadius: 10,
-        pointBackgroundColor: 'red',
-        borderColor: 'transparent', // Sin línea para este dataset
-      },
-    ],
-  };
-
-  const options = {
-    responsive: true,
-    plugins: {
-      legend: {
-        position: 'top',
-      },
-      title: {
-        display: true,
-        text: `Historial y Predicción de Clorofila para ${prediction.codigo_perfil}`,
-        color: '#004d73',
-      },
-      
-      annotation: {
-        annotations: {
-          redZone: {
-            type: 'box',
-            yMin: 24,
-            yMax: Math.max(35, ...historicalValues.filter(v => v).map(v => v*1.1)), // Límite superior dinámico
-            backgroundColor: 'rgba(255, 99, 132, 0.25)',
-            borderColor: 'rgba(255, 99, 132, 0.1)',
-            label: {
-              content: 'Emergencia (> 24)',
-              display: true,
-              position: 'start',
-              color: 'rgba(255, 99, 132, 0.8)'
-            }
-          },
-          yellowZone: {
-            type: 'box',
-            yMin: 10,
-            yMax: 24,
-            backgroundColor: 'rgba(255, 205, 86, 0.25)',
-            borderColor: 'rgba(255, 205, 86, 0.1)',
-             label: {
-              content: 'Alerta (10-24)',
-              display: true,
-              position: 'start',
-              color: 'rgba(255, 205, 86, 0.8)'
-            }
-          },
-          greenZone: {
-            type: 'box',
-            yMin: 0,
-            yMax: 10,
-            backgroundColor: 'rgba(75, 192, 192, 0.25)',
-            borderColor: 'rgba(75, 192, 192, 0.1)',
-             label: {
-              content: 'Vigilancia (< 10)',
-              display: true,
-              position: 'start',
-              color: 'rgba(75, 192, 192, 0.8)'
-            }
-          }
-        }
-      }
-    },
-    scales: {
-      y: {
-        beginAtZero: true,
-        title: {
-          display: true,
-          text: 'Clorofila (µg/l)',
-          color: '#004d73'
-        }
-      }
-    }
-  };
-
-  return <Line options={options} data={data} />;
-}
 
 function RetrainingOverlay() {
   const overlayStyle = {
