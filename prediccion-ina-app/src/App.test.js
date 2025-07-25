@@ -34,7 +34,7 @@ describe('Predict Component', () => {
     const mockPrediction = [{
       codigo_perfil: 'C1',
       fecha_prediccion: '2025-07-01T00:00:00', 
-      Clorofila: { prediccion: 'Alerta', modelo_usado: 'RandomForest', f1_score_cv: 0.8, roc_auc_cv: 0.9, precision_weighted_cv: 0.95 },
+      Clorofila: { prediccion: 'Alerta', modelo_usado: 'RandomForest', f1_score_cv: 0.8, roc_auc_cv: 0.9, precision_weighted_cv: 0.7 },
       Cianobacterias: { prediccion: 'Vigilancia', modelo_usado: 'MLP', f1_score_cv: 0.85, roc_auc_cv: 0.92, precision_weighted_cv: 0.95 },
       Dominancia: { prediccion: 'No Dominante', modelo_usado: 'LogisticRegression', f1_score_cv: 0.9, roc_auc_cv: 0.95, precision_weighted_cv: 0.95 }
     }];
@@ -69,7 +69,7 @@ describe('Predict Component', () => {
     expect(within(clorofilaItem).getByText(/RandomForest/i)).toBeInTheDocument();
     expect(within(clorofilaItem).getByText(/0.8/)).toBeInTheDocument();
     expect(within(clorofilaItem).getByText(/0.9/)).toBeInTheDocument();
-    expect(within(clorofilaItem).getByText(/0.95/)).toBeInTheDocument();
+    expect(within(clorofilaItem).getByText(/0.7/)).toBeInTheDocument();
     const cianoItem = screen.getByText(/^Cianobacterias:$/i).closest('li');
     expect(within(cianoItem).getByText(/MLP/i)).toBeInTheDocument();
   
