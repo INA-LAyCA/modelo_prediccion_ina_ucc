@@ -58,9 +58,7 @@ function PredictionDetails({ targetName, data }) {
       </div>
       <div className="metrics">
         <span><strong>Modelo:</strong> {data.modelo_usado || 'N/D'}</span>
-        <span><strong>F1 (CV):</strong> {data.f1_score_cv || 'N/D'}</span>
         <span><strong>Precision Weighted (CV):</strong> {data.precision_weighted_cv || 'N/D'}</span>
-        <span><strong>ROC AUC (CV):</strong> {data.roc_auc_cv || 'N/D'}</span>
       </div>
     </li>
   );

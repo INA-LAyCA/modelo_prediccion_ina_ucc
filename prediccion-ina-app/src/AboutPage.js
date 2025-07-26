@@ -211,7 +211,12 @@ function AboutPage() {
             </thead>
             <tbody>
               <tr>
-                <td><strong>Dominancia de Cianobacterias</strong></td>
+                <td><div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: '1.2' }}>
+                    <strong>Dominancia de Cianobacterias</strong>
+                    <span style={{ fontSize: '0.8em', color: '#6c757d', marginTop: '4px' }}>
+                      Ciano (cel/L) / Algas Totales (cel/L)
+                    </span>
+                  </div></td>
                 <td>&lt;50%</td>
                 <td>&gt;=50%</td>
               </tr>
@@ -236,6 +241,10 @@ function AboutPage() {
           <h4>ROC AUC (CV): Capacidad de Discriminación</h4>
           <p>
             Mide la habilidad del modelo para distinguir correctamente entre las diferentes clases (ej. "Alerta" vs. "Vigilancia"). Un valor de 0.5 es aleatorio, mientras que un valor cercano a <strong>1.0</strong> indica que el modelo es muy seguro y consistente en su capacidad para diferenciar los niveles de riesgo.
+          </p>
+          <h4>Precision Weighted (CV): Precisión Ponderada</h4>
+          <p>
+            Promedia la precisión de cada clase ponderando por su frecuencia, lo que la hace útil en datos desbalanceados. Valores cercanos a 1.0 indican predicciones más correctas considerando la distribución real de las clases.
           </p>
         </div>
       </div>
