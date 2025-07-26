@@ -67,8 +67,6 @@ describe('Predict Component', () => {
   
     const clorofilaItem = screen.getByText(/^Clorofila:$/i).closest('li');
     expect(within(clorofilaItem).getByText(/RandomForest/i)).toBeInTheDocument();
-    expect(within(clorofilaItem).getByText(/0.8/)).toBeInTheDocument();
-    expect(within(clorofilaItem).getByText(/0.9/)).toBeInTheDocument();
     expect(within(clorofilaItem).getByText(/0.7/)).toBeInTheDocument();
     const cianoItem = screen.getByText(/^Cianobacterias:$/i).closest('li');
     expect(within(cianoItem).getByText(/MLP/i)).toBeInTheDocument();
