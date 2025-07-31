@@ -61,7 +61,7 @@ function AboutPage() {
             Mediante el análisis de series de tiempo históricas y la aplicación de modelos de inteligencia artificial (Machine Learning), esta herramienta identifica patrones complejos para predecir el estado futuro del agua, facilitando una gestión más proactiva y eficiente.
           </p>
           <p>
-            Para lograr estas predicciones, el sistema entrena, evalúa y compara automáticamente un conjunto de modelos de clasificación, incluyendo <strong>Regresión Logística</strong>, <strong>Random Forest</strong> y <strong>Multilayer Perceotron (MLP)</strong>.
+            Para lograr estas predicciones, el sistema entrena, evalúa y compara automáticamente un conjunto de modelos de clasificación, incluyendo <strong>Regresión Logística</strong>, <strong>Random Forest</strong> y <strong>Red Neuronal Multicapa (MLP)</strong>.
           </p>
           <p>
             Para más detalles: 
