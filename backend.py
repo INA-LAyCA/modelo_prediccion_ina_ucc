@@ -633,8 +633,8 @@ SITIOS_A_ANALIZAR   = ['C1','TAC1','TAC4','DSA1','DCQ1']
 TARGETS_A_PREDECIR  = ['Clorofila','Cianobacterias','Dominancia']
 CLASS_LABELS_MAP_ALERTA = {
     0: "Vigilancia",
-    1: "Alerta",
-    2: "Emergencia"
+    1: "Alerta 1",
+    2: "Alerta 2"
 }
 CLASS_LABELS_MAP_ALERTA_DOMINANCIA = {
     0: "No Dominante",

@@ -149,7 +149,7 @@ function AboutPage() {
               <div className="legend-item">
                 <span className="legend-color yellow"></span>
                 <div className="legend-text">
-                  <strong>Alerta:</strong> Se prevé que los parámetros superen los umbrales recomendados. Requiere un aumento en la frecuencia de monitoreo y preparación para posibles acciones.
+                  <strong>Alerta 1:</strong> Se prevé que los parámetros superen los umbrales recomendados. Requiere un aumento en la frecuencia de monitoreo y preparación para posibles acciones.
                 </div>
               </div>
 
@@ -157,7 +157,7 @@ function AboutPage() {
               <div className="legend-item">
                 <span className="legend-color red"></span>
                 <div className="legend-text">
-                  <strong>Emergencia:</strong> Se predice si la dominancia (porcentaje de cianobacterias en relación al total de algas) superara el 50%.
+                  <strong>Alerta 2:</strong> Se predice si la dominancia (porcentaje de cianobacterias en relación al total de algas) superara el 50%.
                 </div>
               </div>
               {/* Item No dominante */}
@@ -181,22 +181,22 @@ function AboutPage() {
               <tr>
                 <th></th>
                 <th className="th-vigilancia">Vigilancia</th>
-                <th className="th-alerta1">Alerta</th>
-                <th className="th-alerta2">Emergencia</th>
+                <th className="th-alerta1">Alerta 1</th>
+                <th className="th-alerta2">Alerta 2</th>
               </tr>
             </thead>
             <tbody>
               <tr>
-                <td><strong>Clorofila a</strong></td>
-                <td>&lt;10 µg/L</td>
-                <td>10-24 µg/L</td>
-                <td>&gt;24 µg/L</td>
+                <td><strong>Clorofila a (µg/L)</strong></td>
+                <td>&lt;10 </td>
+                <td>10-24</td>
+                <td>&gt;24</td>
               </tr>
               <tr>
-                <td><strong>Cianobacterias Totales</strong></td>
-                <td>&lt;5.000 cel/mL</td>
-                <td>5.000 - 60.000 cel/mL</td>
-                <td>&gt;60.000 cel/mL</td>
+                <td><strong>Cianobacterias Totales (cel/mL)</strong></td>
+                <td>&lt;5.000 </td>
+                <td>5.000 - 60.000 </td>
+                <td>&gt;60.000 </td>
               </tr>
             </tbody>
           </table>
@@ -212,13 +212,13 @@ function AboutPage() {
             <tbody>
               <tr>
                 <td><div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: '1.2' }}>
-                    <strong>Dominancia de Cianobacterias</strong>
+                    <strong>Dominancia de Cianobacterias %</strong>
                     <span style={{ fontSize: '0.8em', color: '#6c757d', marginTop: '4px' }}>
                       Ciano (cel/L) / Algas Totales (cel/L)
                     </span>
                   </div></td>
-                <td>&lt;50%</td>
-                <td>&gt;=50%</td>
+                <td>&lt;50</td>
+                <td>&gt;=50</td>
               </tr>
             </tbody>
           </table>

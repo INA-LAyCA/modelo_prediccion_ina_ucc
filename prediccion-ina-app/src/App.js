@@ -11,7 +11,7 @@ function Home({ onAboutStart, onPredictStart, onDataStart, onPredictionsStart, o
   return (
     <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
       <img src={logo} alt="Logo" className="logo1" />
-      <h1>Modelo de Predicción de Calidad de Agua para el ESR-INA-SCIRSA</h1>
+      <h1>Modelo de Predicción de Calidad de Agua para el ESR - INA - SCIRSA</h1>
       <div style={{ display: 'flex', gap: '20px', marginTop: '20px' }}>
         <button onClick={onAboutStart} className="primary-button">Acerca del Modelo</button>
         <button onClick={onDataStart} className="primary-button">Ver Datos</button>
